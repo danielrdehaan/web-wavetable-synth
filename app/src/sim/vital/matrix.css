@@ -1,0 +1,66 @@
+/* Vital's MATRIX page (MatrixPage.tsx). Colours sampled from the capture (s0c, s4m-h, s4m-i, s4a). */
+
+.vmx { position: absolute; inset: 0; background: #262a2e; }
+.vmx-head { position: absolute; background: #3e4245; }
+.vmx-hcol { position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 8.5px; letter-spacing: 0.02em; color: #dfdfdf; cursor: pointer; border-right: 0.5px solid #616567; }
+.vmx-hcol:first-child { border-left: 0.5px solid #505356; }
+.vmx-hcol:last-child { border-right-color: #505356; }
+.vmx-arrow { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); border-left: 3px solid transparent; border-right: 3px solid transparent; border-top: 3.5px solid #dfdfdf; }
+.vmx-arrow.up { border-top: 0; border-bottom: 3.5px solid #dfdfdf; }
+
+.vmx-rows { position: absolute; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; scrollbar-color: #4c4f52 transparent; }
+.vmx-row { position: absolute; background: #323539; color: #5d6064; }
+.vmx-row.on { background: #4c4f52; color: #f2f2f2; }
+.vmx-row.bypass { opacity: 0.55; }
+.vmx-bar { position: absolute; border-radius: 2px; background: #262a2e; }
+.vmx-row.sel .vmx-bar { background: #4e466e; }
+.vmx-row.on.sel .vmx-bar { background: #aa88ff; }
+.vmx-num { position: absolute; display: flex; align-items: center; justify-content: center; font-size: 8.5px; color: #848789; }
+.vmx-row:not(.on) .vmx-num { color: #4c4f52; }
+.vmx-num.btn { cursor: pointer; }
+/* ModulationMeterReadouts: the live amount under the destination box. */
+.vmx-meter { position: absolute; pointer-events: none; }
+.vmx-box { position: absolute; display: flex; align-items: center; justify-content: center; background: #282c30; border-radius: 6px; font-size: 10px; cursor: pointer; white-space: nowrap; overflow: hidden; }
+.vmx-row.on .vmx-box { background: #2c3033; }
+.vmx-box.part { color: #6a6d70; }
+.vmx-icon { position: absolute; display: flex; align-items: center; justify-content: center; color: #42464a; cursor: pointer; }
+.vmx-icon svg { width: 15px; height: 7px; }
+.vmx-icon.ste svg { width: 11px; height: 10px; }
+.vmx-row.on .vmx-icon { color: #848789; }
+.vmx-row.on .vmx-icon.on { color: #aa88ff; }
+.vmx-morph { position: absolute; background: #282c30; border-radius: 6px; color: #3e4245; cursor: ns-resize; touch-action: none; }
+.vmx-row.on .vmx-morph { background: #2c3033; color: #aa88ff; }
+.vmx-morph svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.vmx-amount { position: absolute; background: #262a2e; border-radius: 5px; touch-action: none; }
+.vmx-row.on .vmx-amount { cursor: ew-resize; }
+.vmx-amount .fill { position: absolute; top: 0; bottom: 0; background: #848789; }
+.vmx-amount .thumb { position: absolute; top: -0.5px; bottom: -0.5px; border-radius: 5px; background: #686b6e; }
+.vmx-row.on .vmx-amount .thumb { background: #ffffff; }
+
+.vmx-remap { position: absolute; background: #4c4f52; border-radius: 3px; }
+.vmx-rtitle { position: absolute; display: flex; align-items: center; font-size: 11px; letter-spacing: 0.02em; color: #848789; white-space: nowrap; }
+.vmx-hbox { position: absolute; display: flex; align-items: center; background: #2c3033; border-radius: 8px; }
+.vmx-brush { width: 16px; height: 100%; display: flex; align-items: center; justify-content: center; color: #848789; cursor: pointer; margin-left: 4px; }
+.vmx-brush.on { color: #aa88ff; }
+.vmx-brush svg { width: 8px; height: 8px; }
+.vmx-pattern { flex: 1; height: 100%; display: flex; align-items: center; padding: 0 5px 0 3px; color: #848789; cursor: pointer; }
+.vmx-pattern svg { width: 100%; height: 100%; }
+.vmx-grid { justify-content: space-evenly; font-size: 8.5px; color: #e8e8e8; }
+.vmx-grid .dash { color: #848789; }
+.vmx-smooth { position: absolute; width: 18px; height: 16px; color: #6a6d70; cursor: pointer; transform: translateY(-50%); }
+.vmx-smooth.on { color: #aa88ff; }
+.vmx-smooth svg { width: 100%; height: 100%; }
+.vmx-shape { font-size: 10px; color: #f2f2f2; }
+.vmx-remap:not(.on) .vmx-shape { color: #f2f2f2; }
+.vmx-rdisp { position: absolute; background: #1d2125; border-radius: 3px; overflow: hidden; }
+.vmx-menu { position: absolute; z-index: 55; background: #262a2e; border: 0.5px solid #606265; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5); }
+.vmx-menu button { display: block; width: 100%; background: none; border: 0; text-align: left; font: inherit; color: #e6e8e8; cursor: pointer; white-space: nowrap; }
+.vmx-srcmenu { width: 124.5px; padding: 0; }
+.vmx-srcmenu button { height: 15.7px; padding: 0 9px; font-size: 8.6px; }
+.vmx-srcmenu button:hover { background: #aa88ff; color: #ffffff; }
+.vmx-dstmenu { display: flex; height: 536px; }
+.vmx-dstmenu .col { width: 149.5px; padding: 3px 0; overflow-y: auto; scrollbar-width: none; }
+.vmx-dstmenu .col.right { border-left: 0.5px solid #43464a; }
+.vmx-dstmenu button { height: 21.3px; margin: 0 3px; width: calc(100% - 6px); padding: 0 5px; font-size: 11px; font-weight: 300; border-radius: 1px; }
+.vmx-dstmenu button.hi, .vmx-dstmenu button.cur, .vmx-dstmenu button:hover { background: #9977ee; color: #ffffff; }
+.vmx-dstmenu .sep { display: block; height: 1px; margin: 10px 8px 10.3px; background: #6a6d70; }

@@ -1,0 +1,46 @@
+/* The wavetable editor (WavetableEditor.tsx): the Wavetable Editor skin section's colours as the 1.5.5
+   capture shows them (s1k). */
+.wt-editor { position: absolute; inset: 0; z-index: 30; }
+.wt-editor > * { position: absolute; }
+.wt-bg { background: #24282c; }
+.wt-body { background: #4c4f52; border-radius: 4px; }
+.wt-screen { background: #1d2125; border-radius: 3px; }
+.wt-screen canvas, canvas.wt-screen { display: block; width: 100%; height: 100%; }
+div.wt-screen > canvas { position: absolute; inset: 0; }
+.wt-edit { cursor: crosshair; touch-action: none; }
+.wt-ticks { touch-action: none; cursor: ew-resize; z-index: 3; }
+.wt-exit { cursor: pointer; } .wt-exit path { stroke: #848789; stroke-width: 0.1; stroke-linecap: round; } .wt-exit:hover path { stroke: #aaacad; }
+.wt-gear { cursor: pointer; fill: #848789; padding: 1px; } .wt-gear:hover { fill: #aaacad; }
+.wt-info { color: #727577; display: flex; align-items: center; justify-content: flex-end; font-weight: 400; }
+.wt-playhead { cursor: pointer; touch-action: none; }
+.wt-organizer { touch-action: none; }
+
+.wt-list { overflow: hidden; }
+.wt-list-in { position: absolute; width: 1000px; height: 606px; }
+.wt-list-in > * { position: absolute; }
+.wt-row { background: #606265; border-radius: 4px 0 0 4px; color: #eeeeee; font-weight: 300; display: flex; align-items: center; padding-left: 10px; }
+.wt-row span { flex: 1; white-space: nowrap; overflow: hidden; }
+.wt-menu { cursor: pointer; margin-right: 2px; flex: none; }
+.wt-menu path { stroke: #848789; stroke-width: 0.075; } .wt-menu:hover path { stroke: #b8babc; }
+.wt-addrow { background: #1d2125; border-radius: 4px 0 0 4px; color: #aa88ff; display: flex; align-items: center; gap: 4px; padding-left: 3px; font-size: 8.6px; cursor: pointer; font-weight: 400; }
+.wt-addrow:hover { color: #c0a6ff; }
+.wt-plus path { stroke: currentColor; stroke-width: 0.11; }
+.wt-flag { border: 0; border-radius: 6px; background: #2c3033; color: #848789; font: inherit; font-size: 8px; cursor: pointer; padding: 0; letter-spacing: 0.02em; }
+.wt-flag.on { color: #aa88ff; }
+.wt-flag:hover { background: #33373a; }
+
+.wt-controls { background: #4c4f52; border: 1px solid #aa88ff; border-radius: 2px; z-index: 2; }
+.wt-controls > * { position: absolute; }
+.wt-ctitle { background: rgba(0,0,0,0.18); color: #eeeeee; display: flex; align-items: center; justify-content: center; letter-spacing: 0.02em; }
+.wt-cline { top: 0; bottom: 0; width: 1px; background: rgba(0,0,0,0.18); }
+.wt-text { display: flex; align-items: center; justify-content: center; color: #ffffff; font-weight: 300; cursor: ns-resize; touch-action: none; user-select: none; white-space: nowrap; }
+.wt-selector { cursor: pointer; }
+.wt-inc { position: absolute; right: 0; top: 0; bottom: 0; display: flex; flex-direction: column; }
+.wt-inc svg { flex: 1; cursor: pointer; } .wt-inc path { fill: #848789; } .wt-inc svg:hover path { fill: #eeeeee; }
+.wt-toggle { display: flex; align-items: center; justify-content: center; color: #848789; cursor: pointer; user-select: none; white-space: nowrap; }
+.wt-toggle:hover { color: #aaacad; } .wt-toggle.on { color: #aa88ff; } .wt-toggle.on:hover { color: #c0a6ff; }
+.wt-linear { background: #1d2125; border-radius: 3px; cursor: pointer; touch-action: none; overflow: hidden; }
+.wt-linear i { position: absolute; left: 0; top: 0; bottom: 0; background: #aa88ff; }
+.wt-textedit { background: #1d2125; border: 0; border-radius: 3px; color: #eeeeee; text-align: center; font-family: ui-monospace, Menlo, monospace; outline: none; padding: 0; }
+.wt-audio { background: transparent; cursor: ew-resize; touch-action: none; }
+.wt-linesource { z-index: 1; }

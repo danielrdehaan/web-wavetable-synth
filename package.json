@@ -1,0 +1,25 @@
+{
+  "name": "web-wavetable-synth",
+  "private": true,
+  "version": "0.0.0",
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -p app/tsconfig.json && vite build",
+    "typecheck": "tsc -p app/tsconfig.json",
+    "engine": "./build.sh wasm"
+  },
+  "dependencies": {
+    "fflate": "^0.8.2",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "typescript": "~7.0.2",
+    "vite": "^8.3.4"
+  }
+}

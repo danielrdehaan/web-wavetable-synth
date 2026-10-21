@@ -1,0 +1,63 @@
+/* Vital's EFFECTS page (vital/EffectsPage.tsx, fxPanels.tsx). Colours sampled from the capture
+   (s0b, s6a–c): tiles #3e4245 with a 1 px #848789 border (the effect's colour when on), the list
+   behind them #1f2225, the panel column #262a2e with #1d2124 between panels, panel strip #3e4245,
+   body #4c4f52, value boxes #2c3033 over #3e4245 label strips, screens #1d2125. */
+
+.vfx-page { position: absolute; inset: 0; }
+.vfx-tiles { position: absolute; background: #1f2225; touch-action: none; }
+.vfx-tile { position: absolute; box-sizing: border-box; background: #3e4245; border: 1px solid #848789; border-radius: 2px; color: #848789; cursor: grab; touch-action: none; user-select: none; }
+.vfx-tile.drag { z-index: 5; cursor: grabbing; }
+.vfx-tile .vt-dot { background: #4c4f52; }
+.vfx-tname { position: absolute; left: 6.3px; top: 26.4px; transform: translateY(-50%); font-size: 8.7px; line-height: 1; white-space: nowrap; color: inherit; }
+.vfx-icon { position: absolute; left: 56px; top: 8.5px; width: 45px; height: 35px; color: inherit; overflow: visible; }
+
+.vfx-view { position: absolute; background: #262a2e; overflow: hidden; }
+.vfx-content { position: absolute; left: 0; top: 0; right: 0; }
+.vfx-thumb { position: absolute; right: 0; width: 4.5px; background: rgba(255, 255, 255, 0.13); border-radius: 2px; cursor: ns-resize; touch-action: none; z-index: 8; }
+.vfx-thumb:hover { background: rgba(255, 255, 255, 0.24); }
+
+.vfx-panel { position: absolute; background: #4c4f52; border-radius: 4px; overflow: visible; }
+.vfx-panel::after { content: ''; position: absolute; left: 0; right: 0; top: 100%; height: 2.76px; background: #1d2124; }
+.vfx-panel:last-child::after { display: none; }
+.vfx-strip { position: absolute; left: 0; top: 0; bottom: 0; width: 22.6px; background: #3e4245; border-radius: 4px 0 0 4px; }
+.vfx-pdot { z-index: 4; }
+.vfx-vlabel { position: absolute; left: 11.3px; top: 53.65px; transform: translate(-50%, -50%) rotate(-90deg); font-size: 10.2px; color: #7f8285; letter-spacing: 0.03em; white-space: nowrap; pointer-events: none; }
+.vfx-panel .vt-pill { font-size: 8px; border-radius: 6.5px; padding-top: 0.8px; }
+
+.vfx-box { background: #2c3033; border-radius: 6px; overflow: hidden; }
+.vfx-box.vfx-menu { cursor: pointer; }
+.vfx-val { position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center; justify-content: center; font-size: 9.2px; color: #ffffff; white-space: nowrap; }
+.vfx-lbl { position: absolute; left: 0; right: 0; bottom: 0; background: #3e4245; display: flex; align-items: center; justify-content: center; font-size: 8px; color: #d3d6d6; padding-top: 0.8px; }
+.vfx-tv { display: flex; align-items: center; justify-content: center; height: 100%; }
+.vfx-tempo .vfx-val { justify-content: flex-start; }
+.vfx-sep { position: absolute; top: 25%; height: 50%; width: 1px; background: #828588; }
+.vfx-noteb { position: absolute; top: 0; bottom: 0; display: flex; align-items: center; justify-content: center; color: #a0a3a6; cursor: pointer; }
+.vfx-note { width: 9.4px; height: 15px; }
+.vfx-noteb:hover { color: #d3d6d6; }
+
+.vfx-screen { touch-action: none; }
+.vfx-screen svg { overflow: hidden; }
+.vfx-comp { cursor: ns-resize; }
+.vfx-node { cursor: move; }
+.vfx-revtab { cursor: pointer; font-family: inherit; }
+.vfx-slide { background: #2c3033; }
+.vfx-pblend .fill { display: none; }
+.vfx-fic { position: absolute; }
+.vfx-fsel { font-size: 10.5px; }
+.vfx-fsel .nm { font-size: 10.5px; }
+
+.vfx-eqbtn { background: #2c3033; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: #545454; cursor: pointer; }
+.vfx-eqbtn:hover { color: #6b6b6b; }
+.vfx-eqbtn.on { color: #fff6e1; }
+.vfx-eqbtn.on:hover { color: #ffffff; }
+.vfx-eqbtn.on:active { color: #d1cab7; }
+.vfx-eqicon { width: 19px; height: 14px; }
+.vfx-eqtrack { background: #3e4245; border-radius: 1px; overflow: hidden; }
+.vfx-eqtrack i { position: absolute; top: 0; bottom: 0; }
+.vfx-eqtab { position: absolute; display: flex; align-items: center; justify-content: center; font-size: 10.2px; color: #8a8d90; cursor: pointer; }
+
+.vfx-comppop { width: max-content; margin: 0 auto; background: #1d2125; border: 1px solid #5d6064; border-radius: 5px; padding: 1px 6px; font-size: 18px; color: #e8e8e8; }
+
+/* DraggableEffect's hover grip and DragDropEffectOrder's connector (Lighten Screen). */
+.vfx-grip { position: absolute; inset: 0; width: 100%; height: 100%; fill: rgba(255, 255, 255, 0.2); pointer-events: none; }
+.vfx-connector { position: absolute; background: rgba(255, 255, 255, 0.133); pointer-events: none; }

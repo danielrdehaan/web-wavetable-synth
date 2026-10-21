@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wavetable Engine Spike</title>
+<style>
+  :root { --bg: #1d2125; --panel: #2a2f35; --line: #3b424a; --text: #e6e8ea; --dim: #9aa3ab; --accent: #aa88ff; --ok: #5fd39a; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.4 system-ui, sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 16px; display: grid; gap: 14px; }
+  h1 { font-size: 18px; margin: 0; }
+  .note { color: var(--dim); font-size: 12px; margin: 2px 0 0; }
+  .row { display: flex; gap: 14px; flex-wrap: wrap; align-items: stretch; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; flex: 1 1 300px; min-width: 0; }
+  .panel h2 { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); margin: 0 0 10px; }
+  button, input[type=file]::file-selector-button { background: var(--accent); color: #111; border: 0; border-radius: 6px; padding: 8px 14px; font-weight: 600; cursor: pointer; }
+  button.ghost { background: transparent; color: var(--text); border: 1px solid var(--line); }
+  .ctl { display: grid; grid-template-columns: 110px 1fr 90px; gap: 8px; align-items: center; margin: 4px 0; font-size: 13px; }
+  .ctl output { color: var(--dim); text-align: right; font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  canvas { width: 100%; height: 120px; display: block; background: #15181b; border-radius: 6px; }
+  #stats { color: var(--dim); font-variant-numeric: tabular-nums; }
+  .task { display: flex; gap: 8px; align-items: center; padding: 6px 0; }
+  .task i { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--line); flex: none; }
+  .task.done i { background: var(--ok); border-color: var(--ok); }
+  #kbd { position: relative; height: 110px; user-select: none; touch-action: none; }
+  #kbd div { position: absolute; top: 0; border: 1px solid #111; border-radius: 0 0 4px 4px; }
+  #kbd .w { background: #eee; height: 110px; z-index: 1; }
+  #kbd .b { background: #222; height: 68px; z-index: 2; }
+  #kbd .on { background: var(--accent) !important; }
+  #search { width: 100%; padding: 8px; background: #15181b; color: var(--text); border: 1px solid var(--line); border-radius: 6px; margin-bottom: 8px; }
+  #explorer { max-height: 320px; overflow: auto; }
+  #explorer .ctl { grid-template-columns: 200px 1fr 110px; }
+  #explorer .ctl span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  select { background: #15181b; color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 3px; width: 100%; }
+  @media (max-width: 640px) { .ctl, #explorer .ctl { grid-template-columns: 90px 1fr 70px; } }
+</style>
+</head>
+<body>
+<main>
+  <div>
+    <h1>Wavetable engine in the browser: feasibility spike</h1>
+    <p class="note">The real synthesis engine from github.com/mtytel/vital (GPLv3), compiled to WebAssembly and running in an AudioWorklet. There is no sample playback and no approximation: every sound below comes from the engine itself.</p>
+  </div>
+
+  <div class="row">
+    <button id="start">Start audio</button>
+    <button class="ghost" id="initBtn" disabled>Init patch</button>
+    <label class="ghost" style="display:flex;gap:8px;align-items:center">Load your .vital preset <input type="file" id="preset" accept=".vital,application/json" disabled></label>
+    <span id="stats">not started</span>
+  </div>
+
+  <div class="row">
+    <div class="panel"><h2>Oscillator 1 wavetable frame (from engine)</h2><canvas id="wt" width="600" height="120"></canvas></div>
+    <div class="panel"><h2>Output scope</h2><canvas id="scope" width="600" height="120"></canvas></div>
+  </div>
+
+  <div class="row">
+    <div class="panel" id="quick"><h2>Quick controls</h2></div>
+    <div class="panel">
+      <h2>Tutorial-style task (reads engine state)</h2>
+      <div class="task" id="t1"><i></i>Turn Filter 1 on</div>
+      <div class="task" id="t2"><i></i>Route LFO 1 to Filter 1 cutoff at ≥ 40 semitones</div>
+      <div class="task" id="t3"><i></i>Stack at least 5 unison voices on Oscillator 1</div>
+      <div class="task" id="t4"><i></i>Play a chord of 3 notes</div>
+      <h2 style="margin-top:14px">Modulation</h2>
+      <div class="ctl"><span>LFO 1 → cutoff</span><input type="range" id="lfoAmt" min="0" max="1" step="0.001" value="0"><output id="lfoAmtOut">0 st</output></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Keyboard: click, or type A W S E D F T G Y H U J K (Z / X shift octave)</h2>
+    <div id="kbd"></div>
+  </div>
+
+  <div class="panel">
+    <h2>All engine controls (<span id="count">0</span>)</h2>
+    <input id="search" placeholder="Filter, e.g. reverb, osc_2, env_3, distortion…">
+    <div id="explorer"></div>
+  </div>
+</main>
+
+<script type="module">
+import { SynthEngine } from './engine-client.js'
+
+const $ = (id) => document.getElementById(id)
+let ctx, engine, analyser
+const values = {}
+let lfoAmt = 0
+const held = new Set()
+
+// Raw value → the number Vital's popup shows (ValueDetails scaling).
+function shown(p, raw) {
+  if (p.options) return p.options[Math.round(raw - p.min)] ?? String(raw)
+  let x = raw
+  switch (p.scale) {
+    case 2: x = raw * raw; break
+    case 3: x = raw * raw * raw; break
+    case 4: x = raw * raw * raw * raw; break
+    case 5: x = Math.sqrt(raw); break
+    case 6: x = Math.pow(2, raw); break
+  }
+  x += p.post_offset
+  if (p.invert) x = 1 / x
+  x *= p.multiply
+  const digits = p.scale === 0 || Math.abs(x) >= 100 ? 0 : Math.abs(x) >= 10 ? 1 : 2
+  return x.toFixed(digits) + (p.units ?? '')
+}
+
+function control(p, host, label = p.name) {
+  const row = document.createElement('div')
+  row.className = 'ctl'
+  const name = document.createElement('span'); name.textContent = label; name.title = p.id
+  const out = document.createElement('output')
+  let input
+  if (p.options && p.options.length <= 16) {
+    input = document.createElement('select')
+    p.options.forEach((o, i) => input.add(new Option(o, p.min + i)))
+  } else {
+    input = document.createElement('input'); input.type = 'range'
+    input.min = p.min; input.max = p.max; input.step = p.scale === 0 ? 1 : (p.max - p.min) / 1000
+  }
+  input.dataset.id = p.id
+  const sync = () => { input.value = values[p.id]; out.textContent = shown(p, values[p.id]) }
+  input.addEventListener('input', () => { values[p.id] = +input.value; engine.set(p.id, +input.value); out.textContent = shown(p, +input.value); onChange() })
+  row.append(name, input, out)
+  host.append(row)
+  row.sync = sync
+  sync()
+  return row
+}
+
+const rows = []
+function refreshAll() { for (const r of rows) r.sync(); onChange() }
+
+const QUICK = [
+  ['osc_1_wave_frame', 'Wave frame'], ['osc_1_unison_voices', 'Unison'], ['osc_1_unison_detune', 'Detune'],
+  ['osc_1_level', 'Osc 1 level'], ['filter_1_on', 'Filter 1'], ['filter_1_model', 'Filter model'], ['filter_1_cutoff', 'Cutoff'],
+  ['filter_1_resonance', 'Resonance'], ['env_1_attack', 'Attack'], ['env_1_decay', 'Decay'], ['env_1_sustain', 'Sustain'],
+  ['env_1_release', 'Release'], ['lfo_1_tempo', 'LFO 1 rate'], ['chorus_on', 'Chorus'], ['reverb_on', 'Reverb'], ['reverb_dry_wet', 'Reverb mix'],
+]
+
+function onChange() {
+  $('t1').classList.toggle('done', values.filter_1_on >= 1)
+  $('t2').classList.toggle('done', values.filter_1_on >= 1 && lfoAmt * 128 >= 40)
+  $('t3').classList.toggle('done', values.osc_1_unison_voices >= 5)
+  if (held.size >= 3) $('t4').classList.add('done')
+  drawFrame()
+}
+
+let framePending = false
+async function drawFrame() {
+  if (!engine || framePending) return
+  framePending = true
+  const data = await engine.frame(0, (values.osc_1_wave_frame ?? 0) / 256)
+  framePending = false
+  const c = $('wt'), g = c.getContext('2d')
+  g.clearRect(0, 0, c.width, c.height)
+  g.strokeStyle = '#aa88ff'; g.lineWidth = 2; g.beginPath()
+  for (let i = 0; i < data.length; i += 4) {
+    const x = (i / data.length) * c.width, y = c.height / 2 - data[i] * c.height * 0.42
+    i ? g.lineTo(x, y) : g.moveTo(x, y)
+  }
+  g.stroke()
+}
+
+function scopeLoop() {
+  const c = $('scope'), g = c.getContext('2d'), buf = new Float32Array(analyser.fftSize)
+  const tick = () => {
+    analyser.getFloatTimeDomainData(buf)
+    g.clearRect(0, 0, c.width, c.height)
+    g.strokeStyle = '#5fd39a'; g.lineWidth = 1.5; g.beginPath()
+    for (let i = 0; i < buf.length; i++) {
+      const x = (i / buf.length) * c.width, y = c.height / 2 - buf[i] * c.height * 0.45
+      i ? g.lineTo(x, y) : g.moveTo(x, y)
+    }
+    g.stroke()
+    requestAnimationFrame(tick)
+  }
+  tick()
+  setInterval(async () => {
+    const s = await engine.stats()
+    $('stats').textContent = `${ctx.sampleRate} Hz · ${s.voices} voice(s) · latency ${Math.round((ctx.baseLatency + (ctx.outputLatency || 0)) * 1000)} ms`
+  }, 500)
+}
+
+function setLfo(amt) {
+  lfoAmt = amt
+  engine.setMods(amt > 0 ? [{ src: 'lfo_1', dst: 'filter_1_cutoff', amt, bipolar: false, stereo: false, bypass: false, power: 0 }] : [])
+  $('lfoAmtOut').textContent = `${Math.round(amt * 128)} st`
+  onChange()
+}
+
+// Keyboard
+let octave = 4
+const KEYS = 'awsedftgyhujk'
+function noteOn(n) { if (held.has(n)) return; held.add(n); engine?.noteOn(n, 0.8); paintKeys(); onChange() }
+function noteOff(n) { if (!held.delete(n)) return; engine?.noteOff(n); paintKeys() }
+function buildKeyboard() {
+  const host = $('kbd'), whites = [], start = 48, end = 84
+  for (let n = start; n <= end; n++) if (![1, 3, 6, 8, 10].includes(n % 12)) whites.push(n)
+  const w = 100 / whites.length
+  for (let n = start; n <= end; n++) {
+    const black = [1, 3, 6, 8, 10].includes(n % 12)
+    const el = document.createElement('div')
+    el.className = black ? 'b' : 'w'; el.dataset.note = n
+    const wi = whites.filter((x) => x < n).length
+    el.style.left = black ? `calc(${wi * w}% - ${w * 0.3}%)` : `${wi * w}%`
+    el.style.width = black ? `${w * 0.6}%` : `${w}%`
+    el.addEventListener('pointerdown', (e) => { el.setPointerCapture(e.pointerId); noteOn(n) })
+    el.addEventListener('pointerup', () => noteOff(n))
+    el.addEventListener('pointercancel', () => noteOff(n))
+    host.append(el)
+  }
+}
+function paintKeys() { for (const el of $('kbd').children) el.classList.toggle('on', held.has(+el.dataset.note)) }
+window.addEventListener('keydown', (e) => {
+  if (e.repeat || e.target.tagName === 'INPUT' && e.target.type !== 'range') return
+  if (e.key === 'z') octave = Math.max(1, octave - 1)
+  if (e.key === 'x') octave = Math.min(7, octave + 1)
+  const i = KEYS.indexOf(e.key.toLowerCase()); if (i >= 0) noteOn(octave * 12 + i)
+})
+window.addEventListener('keyup', (e) => { const i = KEYS.indexOf(e.key.toLowerCase()); if (i >= 0) for (const o of [octave - 1, octave, octave + 1]) noteOff(o * 12 + i) })
+buildKeyboard()
+
+$('start').addEventListener('click', async () => {
+  $('start').disabled = true; $('stats').textContent = 'loading engine…'
+  const t0 = performance.now()
+  ctx = new AudioContext({ latencyHint: 'interactive' })
+  engine = await SynthEngine.create(ctx)
+  analyser = ctx.createAnalyser(); analyser.fftSize = 2048
+  engine.node.connect(analyser); analyser.connect(ctx.destination)
+  console.log(`engine ready in ${Math.round(performance.now() - t0)} ms`)
+  for (const p of engine.params) values[p.id] = p.default
+  const quick = $('quick')
+  for (const [id, label] of QUICK) if (engine.byId[id]) rows.push(control(engine.byId[id], quick, label))
+  $('count').textContent = engine.params.length
+  const explorer = $('explorer')
+  const sorted = [...engine.params].filter((p) => !p.id.startsWith('modulation_')).sort((a, b) => a.id.localeCompare(b.id))
+  for (const p of sorted) { const r = control(p, explorer, p.id); r.dataset.search = `${p.id} ${p.name}`.toLowerCase(); rows.push(r) }
+  $('search').addEventListener('input', () => {
+    const q = $('search').value.toLowerCase()
+    for (const r of explorer.children) r.style.display = !q || r.dataset.search.includes(q) ? '' : 'none'
+  })
+  $('lfoAmt').addEventListener('input', (e) => setLfo(+e.target.value))
+  $('initBtn').disabled = false; $('preset').disabled = false
+  $('initBtn').addEventListener('click', async () => {
+    const s = await engine.init(); Object.assign(values, s.values); lfoAmt = 0; $('lfoAmt').value = 0; $('lfoAmtOut').textContent = '0 st'; refreshAll()
+  })
+  $('preset').addEventListener('change', async (e) => {
+    const file = e.target.files[0]; if (!file) return
+    const s = await engine.loadPreset(await file.text())
+    if (!s.ok) { alert('Could not read that preset.'); return }
+    Object.assign(values, s.values)
+    const lfo = s.mods.find((m) => m.src === 'lfo_1' && m.dst === 'filter_1_cutoff')
+    lfoAmt = lfo ? lfo.amt : 0; $('lfoAmt').value = lfoAmt
+    $('stats').textContent = `loaded ${file.name}: ${s.mods.length} modulation(s)`
+    refreshAll()
+  })
+  window.__spike = { engine, ctx, analyser }  // for console poking while this is a spike
+  scopeLoop(); onChange()
+})
+</script>
+</body>
+</html>

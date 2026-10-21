@@ -1,0 +1,17 @@
+/* The synth sims (In Your Synth): the shared frame, then one block per synth drawing. Each drawing
+   keeps its synth's own colours in both app themes (a synth looks the same in light and dark). */
+
+.ss-stagebox { width: 100%; overflow: hidden; position: relative; }
+.ss-stage { position: absolute; top: 0; left: 0; transform-origin: 0 0; user-select: none; -webkit-user-select: none; }
+.ss-region { cursor: pointer; }
+.ss-region.lit { outline: 3px solid #ffd54a; outline-offset: 1px; border-radius: 4px; z-index: 2; }
+.ss-tabs { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0.6rem 0; }
+.ss-feedback { margin: 0.5rem 0 0; font-size: 0.9rem; min-height: 2.6em; }
+.ss-feedback.miss { color: var(--muted); }
+.ss-howto { font-size: 0.8rem; }
+
+.ss-fullbtn { margin-left: auto; order: 99; }
+.ss-overlay { position: fixed; inset: 0; z-index: 1000; background: rgba(0, 0, 0, 0.72); overflow: auto; padding: 2vh 2vw; }
+.ss-overlay .ss-full { max-width: 1400px; margin: 0 auto; background: var(--bg); padding: 1rem 1.2rem; border-radius: 12px; }
+.ss-placeholder { padding: 1rem; color: var(--muted); border: 1.5px dashed var(--border); border-radius: 10px; margin: 1.4rem 0; }
+.kb-ss-current { border-color: var(--primary) !important; box-shadow: 0 0 0 1px var(--primary); }

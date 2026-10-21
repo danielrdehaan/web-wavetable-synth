@@ -1,0 +1,6 @@
+# Cloudflare Pages headers for the synth's own deployment. Only the pages allowed to embed it may
+# frame it (the embedding protocol answers only those origins too: app/src/embed/protocol.ts,
+# VITE_EMBED_ORIGINS). Add an origin here when you add it there.
+/*
+  Content-Security-Policy: frame-ancestors 'self' https://stems.makethings.audio
+  Cross-Origin-Resource-Policy: cross-origin

@@ -1,0 +1,3 @@
+[submodule "vital-src"]
+	path = vital-src
+	url = https://github.com/mtytel/vital.git

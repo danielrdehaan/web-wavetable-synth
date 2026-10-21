@@ -1,0 +1,14 @@
+:root { --bg: #111315; --text: #d3d6d6; --muted: #8b9196; --border: #2c3135; --primary: #aa88ff; color-scheme: dark; }
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, sans-serif; }
+.app { max-width: 1250px; margin: 0 auto; padding: 12px 16px 24px; }
+.app { display: flex; flex-direction: column; }
+.app-bar { order: -1; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin: 0 0 10px; }
+.app-status { margin: 0; color: var(--muted); font-size: 13px; flex: 1 1 320px; }
+.app-midi { color: var(--muted); font-size: 13px; }
+.app-midi-btn { background: transparent; color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 5px 10px; font: inherit; font-size: 13px; cursor: pointer; }
+.app-midi-btn:hover { border-color: var(--primary); }
+.app-status.off { color: var(--primary); }
+.app-status.error { color: #ff7a7a; }
+.app-foot { margin-top: 14px; color: var(--muted); font-size: 12px; }
+.app-foot a { color: var(--primary); }

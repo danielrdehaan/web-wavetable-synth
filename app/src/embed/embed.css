@@ -1,0 +1,7 @@
+/* The framed synth: no page chrome, the interface filling the frame's width. */
+html, body { background: transparent; }
+.embed { position: relative; padding: 0; margin: 0; }
+.embed-hint { position: absolute; right: 8px; top: 8px; margin: 0; padding: 3px 9px; border-radius: 999px; background: rgba(17, 19, 21, 0.85);
+  color: #aa88ff; font: 12px/1.4 system-ui, sans-serif; pointer-events: none; z-index: 100; }
+.embed-hint.error { color: #ff7a7a; }
+@keyframes vt-embed-pulse { 0%, 100% { outline-color: rgba(255, 213, 79, 1); } 50% { outline-color: rgba(255, 213, 79, 0.35); } }
