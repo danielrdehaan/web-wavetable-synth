@@ -13,7 +13,7 @@ export function App() {
   return (
     <EngineProvider>
       <main className="app">
-        <VitalSim>
+        <VitalSim skin={new URLSearchParams(location.search).get('skin')}>
           <EngineSync />
           <ComputerKeyboard />
           <div className="app-bar"><SoundStatus /><MidiInput /></div>

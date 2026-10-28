@@ -1,5 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useVital } from '../sim/vital/ctx'
+import { mix, rgba } from '../sim/vital/LineEditor'
+import { useSkinColors, useSkinValues } from '../sim/vital/skin'
 import { useEngine } from './EngineContext'
 import { useLanesOr } from './status'
 
@@ -9,35 +11,44 @@ import { useLanesOr } from './status'
 // centre; in SP its harmonic magnitudes on a log axis, mirrored (loadSpectrumData). The current frame
 // is spectrally morphed and phase-distorted by the engine exactly as Vital's display computes it
 // (vs_osc_display), at the knobs' modulated values (mono totals, plus poly ones while a voice plays),
-// once per channel: the right channel's line is drawn with the left's (Widget Primary 2 is Primary 1). Geometry and colours are the
-// default skin's ("Oscillator" overrides).
+// once per channel: the right channel's line is drawn with the left's. Geometry and colours are the
+// skin's as the oscillator section has them (useSkinColors / useSkinValues on the display).
 
 const W = 189, H = 89 // the screen's drawing box (the sim's viewBox)
 const SCALE = 1000 / 1440 // the drawing's 1000-wide stage vs Vital's 1440 pt window
 
-// Skin: Wavetable Horizontal/Vertical Angle, Draw Width (Oscillator), Draw Height, Y Offset.
-const H_ANGLE = -0.24, V_ANGLE = 1.22, DRAW_WIDTH = 0.78, WAVE_HEIGHT = 0.1, Y_OFFSET = 0.05
-const WAVE_RANGE_X = Math.cos(H_ANGLE) * DRAW_WIDTH
-const FRAME_RANGE_X = -Math.sin(H_ANGLE) * DRAW_WIDTH
-const WAVE_RANGE_Y = 2 * FRAME_RANGE_X * Math.cos(V_ANGLE)
-const FRAME_RANGE_Y = -2 * WAVE_RANGE_X * Math.cos(V_ANGLE)
-const START_X = 0.5 * (1 - WAVE_RANGE_X - FRAME_RANGE_X)
-const START_Y = 0.5 * (1 - WAVE_RANGE_Y - FRAME_RANGE_Y) + Y_OFFSET
-const DRAW_ANGLE = Math.atan(WAVE_RANGE_Y / WAVE_RANGE_X)
-const OFFSET_X = -Math.sin(DRAW_ANGLE) * 1.5 * WAVE_HEIGHT, OFFSET_Y = Math.cos(DRAW_ANGLE) * 1.5 * WAVE_HEIGHT
+const WAVE_VALUES = ['Wavetable Horizontal Angle', 'Wavetable Vertical Angle', 'Wavetable Draw Width', 'Wavetable Draw Height',
+  'Wavetable Y Offset', 'Widget Line Width'] as const
+const WAVE_COLORS = ['Widget Primary 1', 'Widget Primary Disabled', 'Widget Secondary 1', 'Widget Secondary Disabled', 'Widget Accent 1',
+  'Widget Accent 2', 'Body'] as const
+
+/** Wavetable3d::setDimensionValues: the 3D stack's projection from the skin's angles and sizes. */
+function projection(v: Record<(typeof WAVE_VALUES)[number], number>) {
+  const hAngle = v['Wavetable Horizontal Angle'], vAngle = v['Wavetable Vertical Angle'], drawWidth = v['Wavetable Draw Width']
+  const waveHeight = v['Wavetable Draw Height']
+  const waveRangeX = Math.cos(hAngle) * drawWidth
+  const frameRangeX = -Math.sin(hAngle) * drawWidth
+  const waveRangeY = 2 * frameRangeX * Math.cos(vAngle)
+  const frameRangeY = -2 * waveRangeX * Math.cos(vAngle)
+  const drawAngle = Math.atan(waveRangeY / waveRangeX)
+  return {
+    waveHeight, waveRangeX, frameRangeX, waveRangeY, frameRangeY,
+    startX: 0.5 * (1 - waveRangeX - frameRangeX), startY: 0.5 * (1 - waveRangeY - frameRangeY) + v['Wavetable Y Offset'],
+    offsetX: -Math.sin(drawAngle) * 1.5 * waveHeight, offsetY: Math.cos(drawAngle) * 1.5 * waveHeight,
+  }
+}
+
+/** Colour::withSaturation(0): the grey at the colour's brightness (its largest channel), alpha kept. */
+function desaturate(c: string) {
+  const [r, g, b, a] = rgba(c), v = Math.max(r, g, b)
+  return `rgba(${v},${v},${v},${a})`
+}
+
 const K2D_HEIGHT = 0.25 // k2dWaveHeightPercent
 const LAST_FRAME = 256
 const COLOR_JUMP = 16 // kColorJump
 
-const PRIMARY = '#aa88ff', PRIMARY_OFF = '#4c4f52' // Widget Primary 1 / Disabled
-const SECONDARY = 'rgba(159,136,255,0.4)', SECONDARY_OFF = 'rgba(102,102,102,0.13)' // Widget Secondary 1 / Disabled
-const ACCENT1 = 'rgba(170,136,255,0.098)', ACCENT2 = 'rgba(170,136,255,0.098)' // Widget Accent 1 / 2 (19aa88ff in the default skin)
-// The body colour (Body, 4c4f52) at the wave colour's alpha. An off oscillator's wave colour is the accent
-// desaturated (white, at full brightness) then interpolated half-way to the opaque body colour, alpha
-// included (Colour::interpolatedWith), with its dip at that alpha.
-const BODY_DIP = 'rgba(76,79,82,0.098)', WAVE_OFF = 'rgba(166,167,169,0.549)', BODY_DIP_OFF = 'rgba(76,79,82,0.549)'
 const WAVEFORM_SIZE = 2048, BACKGROUND_RESOLUTION = 128 // vital::Wavetable::kWaveformSize, kBackgroundResolution
-const LINE = 2 * SCALE // Widget Line Width
 
 /** Raw frames of oscillator `osc`'s table (128 points each), re-read when its table or the patch changes. */
 function useTableFrames(osc: number): Float32Array[] | null {
@@ -121,7 +132,21 @@ function framePath(wave: Float32Array, x: (t: number) => number, y: (t: number, 
 export function WaveDisplay({ osc, view, on }: { osc: number; view: number; on: boolean }) {
   const frames = useTableFrames(osc)
   const { out, frame } = useDisplayFrame(osc, on)
-  const line = on ? PRIMARY : PRIMARY_OFF
+  const ref = useRef<SVGGElement>(null)
+  const sv = useSkinValues(ref, WAVE_VALUES)
+  const sc = useSkinColors(ref, WAVE_COLORS)
+  const P = useMemo(() => projection(sv), [sv])
+  const { waveHeight: WAVE_HEIGHT, waveRangeX: WAVE_RANGE_X, frameRangeX: FRAME_RANGE_X, waveRangeY: WAVE_RANGE_Y, frameRangeY: FRAME_RANGE_Y,
+    startX: START_X, startY: START_Y, offsetX: OFFSET_X, offsetY: OFFSET_Y } = P
+  const LINE = sv['Widget Line Width'] * SCALE
+  const line = on ? sc['Widget Primary 1'] : sc['Widget Primary Disabled']
+  const fill = on ? sc['Widget Secondary 1'] : sc['Widget Secondary Disabled']
+  // The body colour (Body) at the wave colour's alpha. An off oscillator's wave colour is the accent
+  // desaturated then interpolated half-way to the opaque body colour, alpha included
+  // (Colour::interpolatedWith), with its dip at that alpha.
+  const body = sc.Body
+  const waveOff = mix(desaturate(sc['Widget Accent 1']), body, 0.5)
+  const dipFor = (c: string) => { const [r, g, b] = rgba(body); return `rgba(${r},${g},${b},${rgba(c)[3]})` }
 
   // 3D background (paint3dBackground): all 257 frames, back to front, each stroked 1 pt wide with a
   // gradient from the wave colour (Widget Accent 1 every 16th frame, Accent 2 otherwise; greyed and
@@ -141,14 +166,16 @@ export function WaveDisplay({ osc, view, on }: { osc: number; view: number; on: 
         d += `L${((sx + wt * WAVE_RANGE_X) * W).toFixed(1)} ${((sy + wt * WAVE_RANGE_Y - WAVE_HEIGHT * b[i]) * H).toFixed(1)}`
       }
       d += `L${((sx + WAVE_RANGE_X) * W).toFixed(1)} ${((sy + WAVE_RANGE_Y + loop) * H).toFixed(1)}`
-      const color = on ? (f % COLOR_JUMP ? ACCENT2 : ACCENT1) : WAVE_OFF
-      paths.push({ d, color, dip: on ? BODY_DIP : BODY_DIP_OFF, x1: sx * W, y1: START_Y * H, x2: (sx + OFFSET_X) * W, y2: (START_Y + OFFSET_Y) * H })
+      const color = on ? (f % COLOR_JUMP ? sc['Widget Accent 2'] : sc['Widget Accent 1']) : waveOff
+      paths.push({ d, color, dip: dipFor(color), x1: sx * W, y1: START_Y * H, x2: (sx + OFFSET_X) * W, y2: (START_Y + OFFSET_Y) * H })
     }
     return paths
-  }, [frames, view, on])
+  }, [frames, view, on, P, sc]) // eslint-disable-line react-hooks/exhaustive-deps
   const gradient = useId()
 
-  if (!out) return null
+  return <g ref={ref}>{out && draw(out)}</g>
+
+  function draw(out: [Display, Display]) {
   if (view === 2) {
     // loadSpectrumData: log-spaced harmonics, +3 dB/octave tilt, −30…50 dB, mirrored about the centre;
     // the right channel's, then the left's over it.
@@ -169,7 +196,7 @@ export function WaveDisplay({ osc, view, on }: { osc: number; view: number; on: 
       }
       return `M${top.join('L')}L${bottom.join('L')}Z`
     }
-    return <>{[1, 0].map((c) => <path key={c} d={spectrum(out[c].spectrum)} fill={on ? SECONDARY : SECONDARY_OFF} stroke={line} strokeWidth={2.5 * SCALE} strokeLinejoin="round" />)}</>
+    return <>{[1, 0].map((c) => <path key={c} d={spectrum(out[c].spectrum)} fill={fill} stroke={line} strokeWidth={1.25 * LINE} strokeLinejoin="round" />)}</>
   }
 
   if (view === 1) {
@@ -178,7 +205,7 @@ export function WaveDisplay({ osc, view, on }: { osc: number; view: number; on: 
     return <>{[0, 1].map((c) => {
       const d = framePath(out[c].wave, (t) => t * W, (_t, v) => mid - v * h)
       return <g key={c}>
-        <path d={`${d}L${W} ${mid}L0 ${mid}Z`} fill={on ? SECONDARY : SECONDARY_OFF} />
+        <path d={`${d}L${W} ${mid}L0 ${mid}Z`} fill={fill} />
         <path d={d} fill="none" stroke={line} strokeWidth={LINE} strokeLinejoin="round" />
       </g>
     })}</>
@@ -213,4 +240,5 @@ export function WaveDisplay({ osc, view, on }: { osc: number; view: number; on: 
       </g>
     })}
   </>
+  }
 }

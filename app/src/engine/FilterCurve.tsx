@@ -1,23 +1,22 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { useVital } from '../sim/vital/ctx'
+import { useSkinColors, useSkinValues } from '../sim/vital/skin'
 import { useEngine } from './EngineContext'
 import { useLanesOr } from './status'
 
 // A filter's response as Vital draws it (filter_response.cpp), computed by the engine (vs_filter_response:
 // the model's own setupFilter, then its response shader ported): 512 points from MIDI note 8 to 137,
-// −30 … 20 dB over the height, filled to the bottom (Widget Fill Center −1) in the Filter skin's colours.
+// −30 … 20 dB over the height, filled to the bottom (Widget Fill Center −1) in the colours of the section
+// it sits in (the voice page's Filter, the effects page's Effects Filter), read from its own element.
 // It reads the controls' modulated values (getOutputsTotal: mono totals, plus poly ones while a voice
 // plays), per channel, so it moves with the modulation; on the formant model transpose, resonance and blend come from the formant controls.
 
 const SCALE = 1000 / 1440 // the drawing's 1000-wide stage vs Vital's 1440 pt window
-// Widget Primary 1 / 2 and Secondary 1 / 2 of the Filter and Effects Filter skins: the left channel's
-// line and fill, the right's.
-const SKINS = {
-  filter: { l: '#ffb74d', r: '#ff8180', lf: 'rgba(255,183,77,0.39)', rf: 'rgba(255,138,128,0.39)' },
-  fx: { l: '#ffb74d', r: '#ff8180', lf: 'rgba(255,183,77,0.39)', rf: 'rgba(255,129,128,0.39)' },
-}
-const LINE_OFF = '#4c4f52', FILL_OFF = 'rgba(102,102,102,0.13)' // Widget Primary / Secondary Disabled
-const FILL_FADE = 0.3 // Widget Fill Fade
+// Widget Primary 1 / 2 and Secondary 1 / 2: the left channel's line and fill, the right's; the Disabled
+// ones while the filter is off.
+const CURVE_COLORS = ['Widget Primary 1', 'Widget Primary 2', 'Widget Secondary 1', 'Widget Secondary 2', 'Widget Primary Disabled',
+  'Widget Secondary Disabled'] as const
+const CURVE_VALUES = ['Widget Fill Fade', 'Widget Line Width'] as const
 
 type Lanes = [number, number]
 
@@ -29,9 +28,13 @@ function useValue(id: string, fallback: number, on: boolean): Lanes {
 }
 
 /** Draws the right channel's response (lane 1) under the left's (lane 0), as drawFilterResponse does;
- *  while the filter is off only the left one, in the disabled colours. */
-export function FilterCurve({ pre, w, h, on, px = 1, fx = false }: { pre: string; w: number; h: number; on: boolean; px?: number; fx?: boolean }) {
+ *  while the filter is off only the left one, in the disabled colours. `fx` is no longer read (the
+ *  section's skin decides the colours). */
+export function FilterCurve({ pre, w, h, on, px = 1 }: { pre: string; w: number; h: number; on: boolean; px?: number; fx?: boolean }) {
   const { engine } = useEngine()
+  const ref = useRef<SVGGElement>(null)
+  const sc = useSkinColors(ref, CURVE_COLORS)
+  const sv = useSkinValues(ref, CURVE_VALUES)
   const api = useVital()
   const model = Math.round(api.v[`${pre}_model`] ?? 0), style = Math.round(api.v[`${pre}_style`] ?? 0)
   const formant = model === 5
@@ -64,7 +67,7 @@ export function FilterCurve({ pre, w, h, on, px = 1, fx = false }: { pre: string
     run()
   }, [engine, key]) // eslint-disable-line react-hooks/exhaustive-deps
   const gradient = useId()
-  if (!data) return null
+  if (!data) return <g ref={ref} />
   const path = (curve: Float32Array) => {
     let d = ''
     for (let i = 0; i < curve.length; i++) {
@@ -73,23 +76,22 @@ export function FilterCurve({ pre, w, h, on, px = 1, fx = false }: { pre: string
     }
     return d
   }
-  const skin = SKINS[fx ? 'fx' : 'filter']
   const layer = (d: string, line: string, fill: string, id: string) => (
     <>
       <defs>
         <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor={fill} />
-          <stop offset="1" stopColor={fill} stopOpacity={1 - FILL_FADE} />
+          <stop offset="1" stopColor={fill} stopOpacity={1 - sv['Widget Fill Fade']} />
         </linearGradient>
       </defs>
       <path d={`${d}L${w} ${h + 2}L0 ${h + 2}Z`} fill={`url(#${id})`} />
-      <path d={d} fill="none" stroke={line} strokeWidth={2 * SCALE * px} strokeLinejoin="round" />
+      <path d={d} fill="none" stroke={line} strokeWidth={sv['Widget Line Width'] * SCALE * px} strokeLinejoin="round" />
     </>
   )
   return (
-    <>
-      {on && layer(path(data[1]), skin.r, skin.rf, `${gradient}r`)}
-      {layer(path(data[0]), on ? skin.l : LINE_OFF, on ? skin.lf : FILL_OFF, `${gradient}l`)}
-    </>
+    <g ref={ref}>
+      {on && layer(path(data[1]), sc['Widget Primary 2'], sc['Widget Secondary 2'], `${gradient}r`)}
+      {layer(path(data[0]), on ? sc['Widget Primary 1'] : sc['Widget Primary Disabled'], on ? sc['Widget Secondary 1'] : sc['Widget Secondary Disabled'], `${gradient}l`)}
+    </g>
   )
 }

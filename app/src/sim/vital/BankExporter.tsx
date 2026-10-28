@@ -7,6 +7,7 @@ import { R } from './hooks'
 // browser: the User presets on the left, the bank name and Export Bank along the top right, then the
 // User wavetables, LFOs and samples. Each row's + adds the file to the bank; Export Bank (lit once the
 // bank has a name) downloads <name>.vitalbank, a zip of <name>/Presets, Wavetables, LFOs and Samples.
+// Drawn in the Preset Browser section of the skin, as Vital's BankExporter is.
 
 const ROW = 26 * 1000 / 1440
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -59,7 +60,7 @@ export function BankExporter() {
   const third = (H - opts - 2 * pad) / 3
   const margin = 5.5 * 2000 / 1440
   return (
-    <div className="vt-pb vt-bank" style={R(127, 108, 1986, 1140)}>
+    <div className="vt-pb vt-bank" data-skin="Preset Browser" style={R(127, 108, 1986, 1140)}>
       <ContentList title="Preset" files={list('preset')} chosen={chosen} toggle={toggle} at={[0, 0, half, H]} />
       <input className="vt-pb-input" style={R(x2 + margin, margin, x2 + margin + (half - 3 * margin) / 2, opts - pad - margin)} placeholder="Bank Name"
         value={name} onChange={(e) => setName(e.currentTarget.value)} />

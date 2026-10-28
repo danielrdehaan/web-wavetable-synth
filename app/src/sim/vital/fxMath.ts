@@ -2,18 +2,22 @@
 // draws from its parameters. No sound is made; these are shapes that move the way Vital's displays
 // move (approximations of the real responses, not Vital's DSP).
 
-/** The nine effects, in Vital's default chain order, with each one's skin colour (sampled from the capture). */
+import type { SkinSection } from './skin'
+
+/** The nine effects, in Vital's default chain order. `skin` is the effect's skin section: its panel and its
+ *  tile on the left (DraggableEffect, setSkinOverride(kAllEffects + 1 + i)) draw with that section's
+ *  colours. */
 export const FX = [
-  { key: 'chorus', name: 'Chorus', label: 'CHORUS', on: 'chorus_on', color: '#aa88ff' },
-  { key: 'compressor', name: 'Compressor', label: 'COMPRESSOR', on: 'compressor_on', color: '#1de9b6' },
-  { key: 'delay', name: 'Delay', label: 'DELAY', on: 'delay_on', color: '#ff99e9' },
-  { key: 'distortion', name: 'Distortion', label: 'DISTORTION', on: 'distortion_on', color: '#ff5252' },
-  { key: 'eq', name: 'Equalizer', label: 'EQUALIZER', on: 'eq_on', color: '#fff6e1' },
-  { key: 'filter', name: 'Filter', label: 'FILTER', on: 'filter_fx_on', color: '#ffb74d' },
-  { key: 'flanger', name: 'Flanger', label: 'FLANGER', on: 'flanger_on', color: '#ffd740' },
-  { key: 'phaser', name: 'Phaser', label: 'PHASER', on: 'phaser_on', color: '#40c4ff' },
-  { key: 'reverb', name: 'Reverb', label: 'REVERB', on: 'reverb_on', color: '#8fa0ff' },
-] as const
+  { key: 'chorus', name: 'Chorus', label: 'CHORUS', on: 'chorus_on', skin: 'Chorus' },
+  { key: 'compressor', name: 'Compressor', label: 'COMPRESSOR', on: 'compressor_on', skin: 'Compressor' },
+  { key: 'delay', name: 'Delay', label: 'DELAY', on: 'delay_on', skin: 'Delay' },
+  { key: 'distortion', name: 'Distortion', label: 'DISTORTION', on: 'distortion_on', skin: 'Distortion' },
+  { key: 'eq', name: 'Equalizer', label: 'EQUALIZER', on: 'eq_on', skin: 'Equalizer' },
+  { key: 'filter', name: 'Filter', label: 'FILTER', on: 'filter_fx_on', skin: 'Effects Filter' },
+  { key: 'flanger', name: 'Flanger', label: 'FLANGER', on: 'flanger_on', skin: 'Flanger' },
+  { key: 'phaser', name: 'Phaser', label: 'PHASER', on: 'phaser_on', skin: 'Phaser' },
+  { key: 'reverb', name: 'Reverb', label: 'REVERB', on: 'reverb_on', skin: 'Reverb' },
+] as const satisfies readonly ({ skin: SkinSection } & Record<string, string>)[]
 
 export const DEFAULT_ORDER = [0, 1, 2, 3, 4, 5, 6, 7, 8]
 
@@ -24,12 +28,10 @@ export const VIEW_TOP = 107.6, VIEW_H = 1032.7
 /** A panel's left edge in the frame (child positions are given in frame x, minus this). */
 export const PX = 344.4
 
-/** "#rrggbb" at `a` over Vital's display background (#1d2125). */
-export function over(hex: string, a: number): string {
-  const n = parseInt(hex.slice(1), 16)
-  const c = [(n >> 16) & 255, (n >> 8) & 255, n & 255]
-  const b = [0x1d, 0x21, 0x25]
-  return `rgb(${c.map((v, i) => Math.round(v * a + b[i] * (1 - a))).join(',')})`
+/** A CSS colour at `a` over the displays' background (Widget Background), as an opaque colour; the
+ *  colour's own alpha is dropped. */
+export function over(color: string, a: number): string {
+  return `color-mix(in srgb, rgb(from ${color} r g b / 1) ${+(a * 100).toFixed(2)}%, var(--sk-widget-background))`
 }
 
 const hz = (semi: number) => 440 * Math.pow(2, (semi - 69) / 12)

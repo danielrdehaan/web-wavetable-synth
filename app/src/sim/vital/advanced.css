@@ -1,41 +1,42 @@
-/* Vital's ADVANCED page (AdvancedPage.tsx). Colours sampled from s0d: a lit section is #4c4f52 with a
-   #3e4245 strip, an unlit one #2f3236 with a #2b2f33 strip. */
+/* Vital's ADVANCED page (AdvancedPage.tsx), in the skin: the page is marked data-skin="Advanced". A lit
+   section is Body with a Body Heading Background strip; an unlit one is under Vital's off overlay
+   (SynthSection's Background at 80 %), which --vad-off mixes into each colour. Shades were sampled from
+   s0d and are written as the skin colours they come from. */
 
 .vad { position: absolute; inset: 0; }
-.vad-sec { position: absolute; background: #2f3236; border-radius: 3px; overflow: hidden; color: #535659; }
-.vad-sec.on { background: #4c4f52; color: #eeeeee; }
-.vad-strip { position: absolute; background: #2b2f33; }
-.vad-sec.on .vad-strip { background: #3e4245; }
-.vad-vlabel { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) rotate(-90deg); white-space: nowrap; font-size: 11px; letter-spacing: 0.04em; color: #3e4245; }
-.vad-sec.on .vad-vlabel { color: #848789; }
-.vad-title { position: absolute; background: #3e4245; display: flex; align-items: center; justify-content: center; font-size: 11px; letter-spacing: 0.03em; color: #848789; }
+.vad-sec { --vad-off: 80%; position: absolute; background: color-mix(in srgb, var(--sk-background) var(--vad-off), var(--sk-body)); border-radius: calc(var(--sk-body-rounding) * 0.75px); overflow: hidden; color: color-mix(in srgb, var(--sk-background) var(--vad-off), var(--sk-text-component-text)); }
+.vad-sec.on { --vad-off: 0%; color: color-mix(in srgb, var(--sk-text-component-text) 93%, transparent); }
+.vad-strip { position: absolute; background: color-mix(in srgb, var(--sk-background) var(--vad-off), var(--sk-body-heading-background)); }
+.vad-vlabel { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) rotate(-90deg); white-space: nowrap; font-size: 11px; letter-spacing: 0.04em; color: color-mix(in srgb, var(--sk-background) var(--vad-off), color-mix(in srgb, var(--sk-heading-text) 43.5%, var(--sk-body-heading-background))); }
+.vad-title { position: absolute; background: var(--sk-body-heading-background); display: flex; align-items: center; justify-content: center; font-size: 11px; letter-spacing: 0.03em; color: color-mix(in srgb, var(--sk-heading-text) 43.5%, transparent); }
 
-.vad-btn { position: absolute; display: flex; align-items: center; justify-content: center; border-radius: 6px; background: #272b2f; font-size: 8.5px; color: #3e4245; cursor: pointer; }
-.vad-sec.on .vad-btn { background: #2c3033; color: #a9abad; }
-.vad-btn.on { color: #4e466e; }
-.vad-sec.on .vad-btn.on { color: #aa88ff; }
-.vad-btn.small { font-size: 8px; border-radius: 7px; }
+/* Text buttons (TextLookAndFeel): Icon Button On when on; off as the capture's lighter grey. */
+.vad-btn { position: absolute; display: flex; align-items: center; justify-content: center; border-radius: calc(var(--sk-widget-rounded-corner) * 0.6667px); background: color-mix(in srgb, var(--sk-background) var(--vad-off), var(--sk-text-component-background)); font-size: 8.5px; color: color-mix(in srgb, var(--sk-background) var(--vad-off), var(--sk-icon-button-off-hover)); cursor: pointer; }
+.vad-btn.on { color: var(--sk-icon-button-on); }
+.vad-sec:not(.on) .vad-btn.on { color: color-mix(in srgb, var(--sk-background) 70%, var(--sk-icon-button-on)); }
+.vad-btn.small { font-size: 8px; border-radius: calc(var(--sk-widget-rounded-corner) * 0.7778px); }
 
-.vad-valbox { position: absolute; display: flex; flex-direction: column; border-radius: 6px; overflow: hidden; background: #2b2f33; }
-.vad-sec.on .vad-valbox { background: #3e4245; }
-.vad-valbox .v { display: flex; align-items: center; justify-content: center; background: #272b2f; font-size: 10px; color: #535659; white-space: nowrap; }
-.vad-sec.on .vad-valbox .v { background: #2c3033; color: #ffffff; }
+/* A value with its label under it: Text Component Background over a Label Background strip. */
+.vad-valbox { position: absolute; display: flex; flex-direction: column; border-radius: calc(var(--sk-widget-rounded-corner) * 0.6667px); overflow: hidden; background: color-mix(in srgb, var(--sk-background) var(--vad-off), var(--sk-label-background)); }
+.vad-valbox .v { display: flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--sk-background) var(--vad-off), var(--sk-text-component-background)); font-size: 10px; color: color-mix(in srgb, var(--sk-background) var(--vad-off), var(--sk-text-component-text)); white-space: nowrap; }
 .vad-valbox.click .v { cursor: pointer; }
 .vad-valbox.small .v { font-size: 8px; }
 .vad-valbox .l { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 8.5px; letter-spacing: 0.01em; }
 .vad-valbox .vt-tv { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
 
-.vad-sec:not(.on) .vt-pill { background: #2b2f33; color: #535659; }
+.vad-sec:not(.on) .vt-pill { background: color-mix(in srgb, var(--sk-background) var(--vad-off), var(--sk-label-background)); color: color-mix(in srgb, var(--sk-background) var(--vad-off), var(--sk-text-component-text)); }
 .vad-sec:not(.on) .vt-knob { opacity: 0.55; }
 
-.vad-spread { position: absolute; background: #24282c; border-radius: 6px; overflow: hidden; }
-.vad-spread.on { background: #1d2125; }
+/* SpreadVisualizer: Widget Background at Widget Rounded Corner. */
+.vad-spread { position: absolute; background: color-mix(in srgb, var(--sk-background) 80%, var(--sk-widget-background)); border-radius: calc(var(--sk-widget-rounded-corner) * 0.6667px); overflow: hidden; }
+.vad-spread.on { background: var(--sk-widget-background); }
 .vad-spread svg { position: absolute; inset: 0; width: 100%; height: 100%; }
 
-.vad-radio { position: absolute; display: flex; align-items: center; justify-content: center; background: #2c3033; border-radius: 7px; font-size: 8.5px; color: #848789; cursor: pointer; }
-.vad-radio.on { color: #aa88ff; }
+.vad-radio { position: absolute; display: flex; align-items: center; justify-content: center; background: var(--sk-text-component-background); border-radius: calc(var(--sk-widget-rounded-corner) * 0.7778px); font-size: 8.5px; color: var(--sk-icon-button-off); cursor: pointer; }
+.vad-radio.on { color: var(--sk-icon-button-on); }
 
-.vad-scope, .vad-spectrum { position: absolute; background: #1d2125; border-radius: 4px; overflow: hidden; }
+/* OutputDisplays: Widget Background; the idle scope's centre line in Widget Primary 1 at Widget Line Width. */
+.vad-scope, .vad-spectrum { position: absolute; background: var(--sk-widget-background); border-radius: calc(var(--sk-widget-rounded-corner) * 0.4444px); overflow: hidden; }
 .vad-scope svg, .vad-spectrum svg { position: absolute; inset: 0; width: 100%; height: 100%; }
-.vad-scope line { stroke: #aa88ff; stroke-width: 0.7; fill: none; }
+.vad-scope line { stroke: var(--sk-widget-primary-1); stroke-width: calc(var(--sk-widget-line-width) * 0.5833px); fill: none; }
 .vad .vt-pill { font-size: 7.6px; white-space: nowrap; letter-spacing: 0; }

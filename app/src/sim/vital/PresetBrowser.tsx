@@ -149,66 +149,69 @@ export function PresetBrowser() {
   }
 
   return (
-    <div className="vt-pb" ref={root} tabIndex={-1} style={R(127, 108, 1986, 1140)}>
-      <div className="vt-pb-info" style={R(1, 0, 571, 442)}>
-        <span className={`vt-pb-name${name && name !== 'Init Preset' ? '' : ' empty'}`} style={R(34, 22, 537, 84)}>{name && name !== 'Init Preset' ? name : 'Preset name'}</span>
-        <i className="vt-pb-rule" style={R(34, 92, 537, 93)} />
-        <span className={`vt-pb-author${author ? '' : ' empty'}`} style={R(34, 106, 537, 146)}>{author || 'Author'}</span>
-        <i className="vt-pb-rule" style={R(34, 160, 537, 161)} />
-        <div className="vt-pb-comments" style={R(34, 184, 537, 409)}>{comments}</div>
-      </div>
-      <div className="vt-pb-search" style={R(1, 459, 571, 1032)}>
-        <input className="vt-pb-input" style={R(34, 33, 537, 88)} placeholder="Search" value={search} onChange={(e) => setSearch(e.currentTarget.value)} />
-        {PRESET_STYLES.map((s, i) => {
-          const x0 = [34, 204.5, 375][i % 3], y0 = [122, 172.5, 223][Math.floor(i / 3)]
-          const on = styles.has(s.toLowerCase())
-          return (
-            <button key={s} type="button" className={`vt-pb-style${on ? ' on' : ''}`} style={R(x0, y0, x0 + 161, y0 + 42)}
-              onClick={() => setStyles((p) => { const n = new Set(p); if (on) n.delete(s.toLowerCase()); else n.add(s.toLowerCase()); return n })}>{s}</button>
-          )
-        })}
-        <SelectionList rows={folderRows} selected={folder} onSelect={pickFolder} onIcon={pickFolder} onRemove={(k) => { void removeFolder(k); if (folder === k) setFolder('all') }}
-          style={R(34, 300, 537, 538)} />
-      </div>
-      <div className="vt-pb-list" style={R(586, 0, 1859, 1032)}>
-        <div className="vt-pb-head" style={{ height: 45 / 2 }}>
-          {COLS.map((c) => (
-            <span key={c.key} className={`vt-pb-col ${c.key}${sort.col === c.key ? ' sorted' : ''}`} style={{ left: colX(c.key) / 2, width: (c.pct * LIST_W) / 2 }}
-              onClick={() => setSort((s) => ({ col: c.key, asc: s.col === c.key ? !s.asc : true }))}>
-              {c.key === 'star' ? <StarIcon on size={ROW_H * 0.8} /> : c.label}
-              {sort.col === c.key && c.key !== 'star' && <i className={`vt-pb-arrow${sort.asc ? '' : ' up'}`} />}
-            </span>
-          ))}
+    <>
+      <div className="vt-pb" data-skin="Preset Browser" ref={root} tabIndex={-1} style={R(127, 108, 1986, 1140)}>
+        <div className="vt-pb-info" style={R(1, 0, 571, 442)}>
+          <span className={`vt-pb-name${name && name !== 'Init Preset' ? '' : ' empty'}`} style={R(34, 22, 537, 84)}>{name && name !== 'Init Preset' ? name : 'Preset name'}</span>
+          <i className="vt-pb-rule" style={R(34, 92, 537, 93)} />
+          <span className={`vt-pb-author${author ? '' : ' empty'}`} style={R(34, 106, 537, 146)}>{author || 'Author'}</span>
+          <i className="vt-pb-rule" style={R(34, 160, 537, 161)} />
+          <div className="vt-pb-comments" style={R(34, 184, 537, 409)}>{comments}</div>
         </div>
-        <div className="vt-pb-rows" onPointerLeave={() => setHover(-1)}>
-          {rows.map((f, k) => {
-            const info = cachedPresetInfo(f.key)
-            const style = info?.style ? info.style[0].toUpperCase() + info.style.slice(1).toLowerCase() : ''
+        <div className="vt-pb-search" style={R(1, 459, 571, 1032)}>
+          <input className="vt-pb-input" style={R(34, 33, 537, 88)} placeholder="Search" value={search} onChange={(e) => setSearch(e.currentTarget.value)} />
+          {PRESET_STYLES.map((s, i) => {
+            const x0 = [34, 204.5, 375][i % 3], y0 = [122, 172.5, 223][Math.floor(i / 3)]
+            const on = styles.has(s.toLowerCase())
             return (
-              <div key={f.key} className={`vt-pb-row${f.key === current ? ' sel' : ''}${k === hover ? ' hover' : ''}`} style={{ height: ROW_H }}
-                onPointerEnter={() => setHover(k)} onContextMenu={(e) => rowMenu(e, f)}
-                onClick={(e) => {
-                  const x = (e.clientX - (e.currentTarget as HTMLElement).getBoundingClientRect().left) / ((e.currentTarget as HTMLElement).getBoundingClientRect().width / (e.currentTarget as HTMLElement).offsetWidth || 1)
-                  if (x < (0.04 * LIST_W) / 2) toggleFavorite(f.key)
-                  else load(f)
-                }}>
-                <span className="vt-pb-cell star" style={{ left: 0, width: (0.04 * LIST_W) / 2 }}><StarIcon on={isFavorite(f.key)} size={ROW_H * 0.8} /></span>
-                {renaming === f.key
-                  ? <input className="vt-pb-rename" autoFocus defaultValue={f.name} style={{ left: colX('name') / 2, width: (0.35 * LIST_W) / 2 }}
-                    onClick={(e) => e.stopPropagation()}
-                    onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); if (e.key === 'Escape') setRenaming(null) }}
-                    onBlur={(e) => { const t = e.currentTarget.value.replace(/[<>?*/|\\[\]":]/g, '').trim(); setRenaming(null); if (t && t !== f.name) void renameUserFile(f.key, t) }} />
-                  : <span className="vt-pb-cell" style={{ left: colX('name') / 2 + ROW_H / 2, width: (0.35 * LIST_W) / 2 - ROW_H }}>{f.name}</span>}
-                <span className="vt-pb-cell" style={{ left: colX('style') / 2 + ROW_H / 2, width: (0.18 * LIST_W) / 2 - ROW_H }}>{style}</span>
-                <span className="vt-pb-cell" style={{ left: colX('author') / 2 + ROW_H / 2, width: (0.25 * LIST_W) / 2 - ROW_H }}>{info?.author ?? ''}</span>
-                <span className="vt-pb-cell date" style={{ right: ROW_H / 2, width: (0.18 * LIST_W) / 2 - ROW_H }}>{dateText(f.lastModified)}</span>
-              </div>
+              <button key={s} type="button" className={`vt-pb-style${on ? ' on' : ''}`} style={R(x0, y0, x0 + 161, y0 + 42)}
+                onClick={() => setStyles((p) => { const n = new Set(p); if (on) n.delete(s.toLowerCase()); else n.add(s.toLowerCase()); return n })}>{s}</button>
             )
           })}
+          <SelectionList rows={folderRows} selected={folder} onSelect={pickFolder} onIcon={pickFolder} onRemove={(k) => { void removeFolder(k); if (folder === k) setFolder('all') }}
+            style={R(34, 300, 537, 538)} />
+        </div>
+        <div className="vt-pb-list" style={R(586, 0, 1859, 1032)}>
+          <div className="vt-pb-head" style={{ height: 45 / 2 }}>
+            {COLS.map((c) => (
+              <span key={c.key} className={`vt-pb-col ${c.key}${sort.col === c.key ? ' sorted' : ''}`} style={{ left: colX(c.key) / 2, width: (c.pct * LIST_W) / 2 }}
+                onClick={() => setSort((s) => ({ col: c.key, asc: s.col === c.key ? !s.asc : true }))}>
+                {c.key === 'star' ? <StarIcon on size={ROW_H * 0.8} /> : c.label}
+                {sort.col === c.key && c.key !== 'star' && <i className={`vt-pb-arrow${sort.asc ? '' : ' up'}`} />}
+              </span>
+            ))}
+          </div>
+          <div className="vt-pb-rows" onPointerLeave={() => setHover(-1)}>
+            {rows.map((f, k) => {
+              const info = cachedPresetInfo(f.key)
+              const style = info?.style ? info.style[0].toUpperCase() + info.style.slice(1).toLowerCase() : ''
+              return (
+                <div key={f.key} className={`vt-pb-row${f.key === current ? ' sel' : ''}${k === hover ? ' hover' : ''}`} style={{ height: ROW_H }}
+                  onPointerEnter={() => setHover(k)} onContextMenu={(e) => rowMenu(e, f)}
+                  onClick={(e) => {
+                    const x = (e.clientX - (e.currentTarget as HTMLElement).getBoundingClientRect().left) / ((e.currentTarget as HTMLElement).getBoundingClientRect().width / (e.currentTarget as HTMLElement).offsetWidth || 1)
+                    if (x < (0.04 * LIST_W) / 2) toggleFavorite(f.key)
+                    else load(f)
+                  }}>
+                  <span className="vt-pb-cell star" style={{ left: 0, width: (0.04 * LIST_W) / 2 }}><StarIcon on={isFavorite(f.key)} size={ROW_H * 0.8} /></span>
+                  {renaming === f.key
+                    ? <input className="vt-pb-rename" autoFocus defaultValue={f.name} style={{ left: colX('name') / 2, width: (0.35 * LIST_W) / 2 }}
+                      onClick={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); if (e.key === 'Escape') setRenaming(null) }}
+                      onBlur={(e) => { const t = e.currentTarget.value.replace(/[<>?*/|\\[\]":]/g, '').trim(); setRenaming(null); if (t && t !== f.name) void renameUserFile(f.key, t) }} />
+                    : <span className="vt-pb-cell" style={{ left: colX('name') / 2 + ROW_H / 2, width: (0.35 * LIST_W) / 2 - ROW_H }}>{f.name}</span>}
+                  <span className="vt-pb-cell" style={{ left: colX('style') / 2 + ROW_H / 2, width: (0.18 * LIST_W) / 2 - ROW_H }}>{style}</span>
+                  <span className="vt-pb-cell" style={{ left: colX('author') / 2 + ROW_H / 2, width: (0.25 * LIST_W) / 2 - ROW_H }}>{info?.author ?? ''}</span>
+                  <span className="vt-pb-cell date" style={{ right: ROW_H / 2, width: (0.18 * LIST_W) / 2 - ROW_H }}>{dateText(f.lastModified)}</span>
+                </div>
+              )
+            })}
+          </div>
         </div>
       </div>
+      {/* DeleteSection: an Overlay over the whole interface (Overlays skin), not part of the browser. */}
       {deleting && (
-        <div className="vt-overlay" onPointerDown={(e) => { if (e.target === e.currentTarget) setDeleting(null) }}>
+        <div className="vt-overlay" data-skin="Overlays" onPointerDown={(e) => { if (e.target === e.currentTarget) setDeleting(null) }}>
           <div className="vt-ovbox" style={{ width: 340 * 0.694, height: 140 * 0.694 }}>
             <span className="vt-ovtext" style={{ top: 20 * 0.694 }}>Are you sure you want to delete this preset?</span>
             <span className="vt-ovtext" style={{ top: 50 * 0.694 }}>{deleting.name}</span>
@@ -218,6 +221,6 @@ export function PresetBrowser() {
           </div>
         </div>
       )}
-    </div>
+    </>
   )
 }

@@ -18,10 +18,13 @@ import { useVital } from './ctx'
 import { oscFrame } from './draw'
 import { R, useControlMenu, useNow, useSlider } from './hooks'
 import { norm, shown } from './params'
+import { sk, useSkinColors, useSkinValues } from './skin'
 
 // Vital's frame: the header (page tabs, preset bar, undo/redo, the volume strip and scope), the macro
 // column with the wheels, and the keyboard. The header mark is a neutral one, not Vital's logo, and
-// the title bar carries this build's own name (builds of Vital's source mustn't be called Vital).
+// the title bar carries this build's own name (builds of Vital's source mustn't be called Vital). Each
+// part takes its Vital skin section (data-skin): Header, Logo, Macro, Keyboard (the wheels' BendSection
+// and the keyboard); the title bar isn't Vital's and keeps its own colours.
 
 export type Page = 'voice' | 'effects' | 'matrix' | 'advanced'
 const TABS: { id: Page; label: string; cx: number; mark: number }[] = [
@@ -96,11 +99,14 @@ export function Header() {
         onChange={(e) => { const f = e.currentTarget.files?.[0]; e.currentTarget.value = ''; if (f) void importBank(f).then((n) => { if (!n) window.alert(`${f.name} has no presets, wavetables, LFOs or samples in it.`) }) }} />
       <input ref={file} type="file" accept=".vital,application/json" hidden
         onChange={(e) => { const f = e.currentTarget.files?.[0]; e.currentTarget.value = ''; if (f) void openPreset(f) }} />
+      <div className="vt-headerskin" data-skin="Header">
       <div className="vt-b vt-header" style={R(0, 38, 2000, 108)} />
       {/* A neutral mark where Vital's logo sits. */}
-      <svg className="vt-logo" style={R(38, 47, 90, 103)} viewBox="0 0 52 56" aria-label="About" onClick={(e) => { e.stopPropagation(); api.setUi({ about: true }) }}>
-        <circle cx={26} cy={28} r={21} fill="none" stroke="#aa88ff" strokeWidth={3} />
-        <path d="M9 28 C 15 12, 20 12, 26 28 S 37 44, 43 28" fill="none" stroke="#ffffff" strokeWidth={3} strokeLinecap="round" />
+      {/* In the Logo skin: the ring in Widget Primary 1, the mark in Widget Secondary 1 (LogoButton's ring and
+          letter colours). */}
+      <svg className="vt-logo" data-skin="Logo" style={R(38, 47, 90, 103)} viewBox="0 0 52 56" aria-label="About" onClick={(e) => { e.stopPropagation(); api.setUi({ about: true }) }}>
+        <circle cx={26} cy={28} r={21} fill="none" style={{ stroke: sk('Widget Primary 1') }} strokeWidth={3} />
+        <path d="M9 28 C 15 12, 20 12, 26 28 S 37 44, 43 28" fill="none" style={{ stroke: sk('Widget Secondary 1') }} strokeWidth={3} strokeLinecap="round" />
       </svg>
       {!api.ui.presetBrowser && !api.ui.bankExporter && <><div className="vt-b vt-tabtrack" style={R(127, 39, 683, 43)} />
         <div className="vt-b vt-tabmark" style={R(mark, 39, mark + 140, 43)} /></>}
@@ -133,6 +139,7 @@ export function Header() {
       </div>
       <Volume />
       <Scope />
+      </div>
     </>
   )
 }
@@ -162,13 +169,17 @@ export function Volume() {
   const ticksY = buffer + 2 * mh + pad + 4 * PT, tickH = mh / 2
   const ticks: number[] = []
   for (let db = -66; db <= 6; db += 6) ticks.push(((db + 80) ** 2 / 7399.4404) * w)
+  // PeakMeterViewer's corners: a third of its height, at most half the Widget Rounded Corner.
+  const ref = useRef<HTMLDivElement>(null)
+  const rounded = useSkinValues(ref, ['Widget Rounded Corner'] as const)['Widget Rounded Corner']
+  const radius = Math.min(mh / 3, (rounded / 2) * PT)
   return (
-    <Box at={[VOL.x, VOL.y, VOL.x + w, VOL.y + h]} className="vt-meter" {...sl.handlers} onContextMenu={menu} title="Volume">
+    <Box at={[VOL.x, VOL.y, VOL.x + w, VOL.y + h]} className="vt-meter" {...sl.handlers} ref={(el: HTMLDivElement | null) => { ref.current = el; sl.handlers.ref(el) }} onContextMenu={menu} title="Volume">
       <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', overflow: 'visible' }}>
-        <PeakMeter lane={0} y={buffer} w={w} h={mh} />
-        <PeakMeter lane={1} y={buffer + mh + PT} w={w} h={mh} />
-        {ticks.map((tx) => <rect key={tx} x={tx} y={ticksY} width={PT} height={tickH} fill="rgba(255,255,255,0.133)" />)}
-        <path d={`M${x} ${pointY}L${x + arrow / 2} ${endY}L${x - arrow / 2} ${endY}Z`} fill="#ffffff" />
+        <PeakMeter lane={0} y={buffer} w={w} h={mh} radius={radius} />
+        <PeakMeter lane={1} y={buffer + mh + PT} w={w} h={mh} radius={radius} />
+        {ticks.map((tx) => <rect key={tx} x={tx} y={ticksY} width={PT} height={tickH} style={{ fill: sk('Lighten Screen') }} />)}
+        <path d={`M${x} ${pointY}L${x + arrow / 2} ${endY}L${x - arrow / 2} ${endY}Z`} style={{ fill: sk('Linear Slider Thumb') }} />
       </svg>
       {sl.popup && <Bubble at="below" text={shown('volume', api.v.volume ?? 0)} />}
       {sl.editing && <TextEntry p="volume" onDone={() => sl.setEditing(false)} />}
@@ -176,8 +187,10 @@ export function Volume() {
   )
 }
 
-/** One channel's peak meter: the level, its held peak (a one-point line) and the red clip latch. */
-function PeakMeter({ lane, y, w, h }: { lane: number; y: number; w: number; h: number }) {
+/** One channel's peak meter: the level, its held peak (a one-point line) and the clip latch, in the Header
+ *  skin: Widget Secondary 1 → 2 (Widget Accent 1 → 2 while clipped) over Widget Background below 0 dB
+ *  and Widget Background half-way to Background above it, the 0 dB line in Lighten Screen. */
+function PeakMeter({ lane, y, w, h, radius }: { lane: number; y: number; w: number; h: number; radius: number }) {
   const peak = useStatusLanes('peak_meter')?.[lane]
   const memory = useStatusLanes('peak_meter_memory')?.[lane]
   const clipUntil = useRef(0)
@@ -186,22 +199,21 @@ function PeakMeter({ lane, y, w, h }: { lane: number; y: number; w: number; h: n
   const clipped = now < clipUntil.current
   const zero = w * meterT(1)
   const id = `vt-peak-${lane}`
-  const radius = Math.min(h / 3, 4.5 * PT)
   const live = peak !== undefined && Number.isFinite(peak)
   const held = memory !== undefined && Number.isFinite(memory) ? meterT(memory) * w : null
   return (
     <>
       <defs>
         <linearGradient id={id} x1="0" y1="0" x2={w} y2="0" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor={clipped ? '#ff1744' : '#1de9b6'} />
-          <stop offset="1" stopColor={clipped ? '#ff5252' : '#80d8ff'} />
+          <stop offset="0" style={{ stopColor: sk(clipped ? 'Widget Accent 1' : 'Widget Secondary 1') }} />
+          <stop offset="1" style={{ stopColor: sk(clipped ? 'Widget Accent 2' : 'Widget Secondary 2') }} />
         </linearGradient>
         <clipPath id={`${id}c`}><rect x={0} y={y} width={w} height={h} rx={radius} /></clipPath>
       </defs>
       <g clipPath={`url(#${id}c)`}>
-        <rect x={0} y={y} width={zero} height={h} fill="#161718" />
-        <rect x={zero} y={y} width={w - zero} height={h} fill="#1e2022" />
-        <rect x={zero} y={y} width={PT} height={h} fill="rgba(255,255,255,0.133)" />
+        <rect x={0} y={y} width={zero} height={h} style={{ fill: sk('Widget Background') }} />
+        <rect x={zero} y={y} width={w - zero} height={h} style={{ fill: 'color-mix(in srgb, var(--sk-widget-background) 50%, var(--sk-background))' }} />
+        <rect x={zero} y={y} width={PT} height={h} style={{ fill: sk('Lighten Screen') }} />
         {live && <rect x={0} y={y} width={meterT(peak) * w} height={h} fill={`url(#${id})`} />}
         {held !== null && held > 0 && <rect x={held - PT} y={y} width={PT} height={h} fill={`url(#${id})`} />}
       </g>
@@ -223,7 +235,7 @@ function EngineScope() {
   return (
     <Box at={[1731, 47.6, 1986, 99.7]} className="vt-scope" title={spectrogram ? 'Spectrogram' : 'Oscilloscope'}
       onClick={(e) => { e.stopPropagation(); api.set('view_spectrogram', spectrogram ? 0 : 1) }}>
-      <OutputDisplay w={255} h={52} spectrogram={spectrogram ? { id: 0, minDb: -40, maxDb: 0 } : null} lineWidth={(spectrogram ? 2 : 1.2) * PT} />
+      <OutputDisplay w={255} h={52} spectrogram={spectrogram ? { id: 0, minDb: -40, maxDb: 0 } : null} pt={PT} />
     </Box>
   )
 }
@@ -239,7 +251,7 @@ function DrawnScope() {
   const d = on ? Array.from({ length: 129 }, (_, k) => { const ph = ((k / 64 + shift) % 1) * 63; return `${k ? 'L' : 'M'} ${(k / 128 * 127.5).toFixed(1)} ${(12.5 - f[Math.floor(ph)] * amp).toFixed(1)}` }).join(' ') : 'M 0 12.5 L 127.5 12.5'
   return (
     <Box at={[1731, 47, 1986, 99]} className="vt-scope">
-      <svg viewBox="0 0 127.5 26" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}><path d={d} fill="none" stroke="#aa88ff" strokeWidth={0.9} /></svg>
+      <svg viewBox="0 0 127.5 26" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}><path d={d} fill="none" style={{ stroke: sk('Widget Primary 1') }} strokeWidth={0.9} /></svg>
     </Box>
   )
 }
@@ -275,6 +287,8 @@ function MacroName({ m }: { m: number }) {
  *  with the slider's wheel, menu, popup above and double-click reset; the pitch wheel springs back to
  *  centre on release. Drawn as Vital paints it: six ridges either side of the marker on a drum turning
  *  through 80 % of half a turn, each ridge fading toward the drum's edges (Keyboard skin colours). */
+const WHEEL_COLORS = ['Widget Secondary 1', 'Widget Accent 1', 'Widget Primary 1'] as const
+
 function Wheel({ p, x, spring }: { p: string; x: number; spring: boolean }) {
   const api = useVital()
   const W = 13, H = 37
@@ -282,7 +296,11 @@ function Wheel({ p, x, spring }: { p: string; x: number; spring: boolean }) {
   const menu = useControlMenu(p, () => sl.setEditing(true))
   const v = api.v[p] ?? 0
   const buffer = W * 0.05, width = W - 2 * buffer, height = H - 4 * buffer
-  const fill = '#4c4f52', ridge = '#848789', marker = '#aa88ff'
+  // ControlWheel in the Keyboard skin: the drum Widget Secondary 1, the ridges Widget Accent 1, the
+  // marker Widget Primary 1.
+  const ref = useRef<HTMLSpanElement>(null)
+  const sc = useSkinColors(ref, WHEEL_COLORS)
+  const fill = sc['Widget Secondary 1'], ridge = sc['Widget Accent 1'], marker = sc['Widget Primary 1']
   let t = 1 - norm(p, v)
   t = (t - 0.5) * 0.8 + 0.5
   const shapes: ReactNode[] = []
@@ -302,7 +320,7 @@ function Wheel({ p, x, spring }: { p: string; x: number; spring: boolean }) {
   for (let i = 6; t + i / 6 >= 0.5; i--) line(t + i / 6, i === 0 ? marker : ridge, `a${i}`)
   for (let i = -6; t + i / 6 < 0.5; i++) line(t + i / 6, i === 0 ? marker : ridge, `b${i}`)
   return (
-    <span className="w" style={{ left: x }} {...sl.handlers} onContextMenu={menu}
+    <span className="w" style={{ left: x }} {...sl.handlers} ref={(el: HTMLSpanElement | null) => { ref.current = el; sl.handlers.ref(el) }} onContextMenu={menu}
       onPointerUp={(e) => { sl.handlers.onPointerUp(); if (spring) api.set(p, 0); e.stopPropagation() }}>
       <svg viewBox={`0 0 ${W} ${H}`} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
         <rect x={buffer} y={buffer} width={W - 2 * buffer} height={H - 2 * buffer} rx={W * 0.15} fill={fill} />
@@ -316,7 +334,7 @@ function Wheel({ p, x, spring }: { p: string; x: number; spring: boolean }) {
 
 export function Macros() {
   return (
-    <Region tags={['mod']} className="vt-macros" label="Macros and wheels" style={R(14, 108, 113, 1200)}>
+    <Region tags={['mod']} className="vt-macros" label="Macros and wheels" style={R(14, 108, 113, 1200)} skin="Macro">
       {[0, 1, 2, 3].map((m) => (
         <div key={m}>
           <Box at={[0, m * 200, 99, m * 200 + 95]} className="vt-macrotop" />
@@ -327,7 +345,7 @@ export function Macros() {
       ))}
       <SourceButton src="pitch_wheel" at={[0, 797, 99, 894]} className="vt-macrobot" title="Drag onto a control to modulate it"><span className="vt-mlabel top">PITCH WHL</span></SourceButton>
       <SourceButton src="mod_wheel" at={[0, 897, 99, 994]} className="vt-macrobot" title="Drag onto a control to modulate it"><span className="vt-mlabel top">MOD WHL</span></SourceButton>
-      <Box at={[0, 997, 99, 1092]} className="vt-macrotop vt-wheels"><Wheel p="pitch_wheel" x={7} spring /><Wheel p="mod_wheel" x={29} spring={false} /></Box>
+      <Box at={[0, 997, 99, 1092]} className="vt-macrotop vt-wheels" data-skin="Keyboard"><Wheel p="pitch_wheel" x={7} spring /><Wheel p="mod_wheel" x={29} spring={false} /></Box>
     </Region>
   )
 }
@@ -377,7 +395,7 @@ export function Keyboard() {
     keys.push(<i key={n} data-note={n} className={`bk${api.notes.has(n) || midiNotes.has(n) ? ' on' : ''}${hover === n ? ' hover' : ''}`} style={{ left: oct * 7 * WHITE + BLACK_AT[k], width: 9.7 }} />)
   }
   return (
-    <div ref={box} className="vt-b vt-keyboard" style={R(127, 1153, 1986, 1206)}
+    <div ref={box} className="vt-b vt-keyboard" data-skin="Keyboard" style={R(127, 1153, 1986, 1206)}
       onPointerDown={(e) => { e.stopPropagation(); try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic pointer */ } press(noteAt(e), e.clientY) }}
       onPointerLeave={() => setHover(null)}
       onPointerMove={(e) => { setHover(noteAt(e)); if (held.current === null) return; const el = document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-note]'); press(el ? Number(el.getAttribute('data-note')) : held.current, e.clientY) }}

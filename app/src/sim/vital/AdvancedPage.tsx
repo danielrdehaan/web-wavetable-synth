@@ -7,6 +7,7 @@ import { OVERSAMPLING, PARAMS, shown, UNISON_STACKS, VOICE_OVERRIDE, VOICE_PRIOR
 import { useEngine } from '../../engine/EngineContext'
 import { useLanesOr } from '../../engine/status'
 import { OutputDisplay, SpectrogramGrid } from '../../engine/OutputDisplay'
+import { sk, useSkin } from './skin'
 import './advanced.css'
 
 // Vital's ADVANCED page (s0d, s7c–e in the deep capture): per oscillator its OPTIONS (NOTE TRACK,
@@ -103,7 +104,7 @@ function SpreadDisplay({ n, active }: { n: number; active: boolean }) {
   }
   return (
     <div className={`vad-spread${active ? ' on' : ''}`} style={R(362.5, 7.8, 770.2, 93)}>
-      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none"><g fill="rgba(159,136,255,0.4)">{bars}</g></svg>
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none"><g style={{ fill: sk('Widget Secondary 1') }}>{bars}</g></svg>
     </div>
   )
 }
@@ -162,12 +163,34 @@ function UiMenuBox({ k, names, def, at, split, label, extra }: { k: string; name
   )
 }
 
+/** THEME: the skins (Vital's default and the bundled ones, plus one loaded from a file), then Load
+ *  Skin... for a .vitalskin of the reader's own. */
+function ThemeBox({ at, split }: { at: Rect; split: number }) {
+  const api = useVital()
+  const skins = useSkin()
+  const pick = useRef<HTMLInputElement>(null)
+  return (
+    <>
+      <ValBox at={at} split={split} label="THEME" className="click small"
+        onClick={(e) => menuOf(api, e, [...skins.names.map((name) => ({ label: name, on: name === skins.skin.name, act: () => skins.choose(name) })),
+          { sep: true }, { label: 'Load Skin...', act: () => pick.current?.click() }], 95)}>
+        {skins.skin.name}
+      </ValBox>
+      <input ref={pick} type="file" accept=".vitalskin,application/json" hidden onChange={(e) => {
+        const file = e.target.files?.[0]
+        e.target.value = ''
+        if (file) skins.load(file).catch(() => console.warn(`${file.name} isn't a Vital skin`)) // Vital ignores it too
+      }} />
+    </>
+  )
+}
+
 export function AdvancedPage() {
   const api = useVital()
   const over = Math.round(api.v.oversampling ?? 1)
   const { engine } = useEngine()
   return (
-    <div className="vad">
+    <div className="vad" data-skin="Advanced">
       {[0, 1, 2].map((i) => <OscRow key={i} i={i} />)}
 
       <div className="vad-sec on" style={R(0, 606, 221, 1032)}>
@@ -195,21 +218,21 @@ export function AdvancedPage() {
       <div className="vad-sec on" style={R(226.5, 827, 447.6, 1032)}>
         <div className="vad-title" style={R(0, 0, 221, 45)}>DISPLAY</div>
         <UiMenuBox k="advFreqUnits" names={FREQ_UNITS} def="Semitones" at={[7.8, 52.7, 213.3, 121.4]} split={95.6} label="FREQUENCY UNITS" />
-        <UiMenuBox k="advTheme" names={['Default']} def="Default" at={[7.8, 128.9, 213.3, 198]} split={172} label="THEME" extra="Load Skin..." />
+        <ThemeBox at={[7.8, 128.9, 213.3, 198]} split={172} />
       </div>
 
       <div className="vad-sec on" style={R(453, 606, 1004, 1032)}>
         <div className="vad-title" style={R(0, 0, 551, 45)}>ANALYSIS</div>
         {/* OutputDisplays: Vital's stock Oscilloscope and Spectrogram (−50 … 0 dB, 9.2 Hz – 21 kHz, grid),
-            in the Advanced skin (Widget Line Width 1.2; the spectrogram draws at 2). */}
+            in the Advanced skin section (the oscilloscope at its Widget Line Width; the spectrogram at 2 pt). */}
         <div className="vad-scope" style={R(7.5, 53, 544, 239.5)}>
           {engine
-            ? <OutputDisplay w={536.5} h={186.5} spectrogram={null} lineWidth={1.2 * 2000 / 1440} />
+            ? <OutputDisplay w={536.5} h={186.5} spectrogram={null} pt={2000 / 1440} />
             : <svg viewBox="0 0 268 93" preserveAspectRatio="none"><line x1={0} x2={268} y1={46.5} y2={46.5} /></svg>}
         </div>
         <div className="vad-spectrum" style={R(7.5, 247.3, 544, 419)}>
           <SpectrogramGrid w={536.5} h={171.7} />
-          {engine && <OutputDisplay w={536.5} h={171.7} spectrogram={{ id: 1, minDb: -50, maxDb: 0 }} lineWidth={2 * 2000 / 1440} />}
+          {engine && <OutputDisplay w={536.5} h={171.7} spectrogram={{ id: 1, minDb: -50, maxDb: 0 }} pt={2000 / 1440} />}
         </div>
       </div>
     </div>

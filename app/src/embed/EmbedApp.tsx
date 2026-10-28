@@ -17,7 +17,7 @@ export function EmbedApp({ params }: { params: URLSearchParams }) {
   return (
     <EngineProvider>
       <main className="embed">
-        <VitalSim parts={parts.length ? parts : undefined} layout={layout} flow={params.get('flow') === '1'}>
+        <VitalSim parts={parts.length ? parts : undefined} layout={layout} flow={params.get('flow') === '1'} skin={params.get('skin')}>
           <EngineSync />
           <ComputerKeyboard />
           <EmbedBridge host={params.get('host')} parts={parts} />

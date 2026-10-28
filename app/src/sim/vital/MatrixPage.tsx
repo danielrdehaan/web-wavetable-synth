@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from 'react'
 import type { LineShape } from '../../../../web/engine-client.js'
 import { loadLibrary, shiftedFile, type LibFile } from '../../engine/library'
 import { lineFromEngine } from '../../engine/shapes'
@@ -10,8 +10,9 @@ import { useVital, type Mod, type VitalApi } from './ctx'
 import { R, useDrag } from './hooks'
 import { powerCurve } from './draw'
 import { type Line, LINEAR, PAINT_SHAPES } from './line'
-import { GridValue, LineEditor, PatternBox } from './LineEditor'
+import { GridValue, LineEditor, PatternBox, type LineSkin } from './LineEditor'
 import { amountScale, MOD_LISTS, shownAmount } from './params'
+import { sk, useSkinColors, useSkinValues } from './skin'
 import './matrix.css'
 
 // Vital's MATRIX page (s0c, s4a, s4m-h…o in the deep capture): one row per modulation connection plus
@@ -69,6 +70,23 @@ const dstName = (id: string) => id.replace('control_', '').split('_').filter(Boo
 
 // ── MOD REMAP ────────────────────────────────────────────────────────────────────────────────────────
 
+const LINE_COLORS = ['Widget Primary 1', 'Widget Primary 2', 'Widget Secondary 1', 'Widget Secondary 2', 'Widget Center Line',
+  'Widget Accent 1', 'Widget Accent 2', 'Widget Background', 'Lighten Screen', 'Widget Primary Disabled', 'Widget Secondary Disabled'] as const
+const LINE_VALUES = ['Widget Line Width', 'Widget Line Boost', 'Widget Fill Boost', 'Widget Fill Fade'] as const
+
+/** The remap editor's colours and line values as `ref`'s element sees them (the Modulation Matrix
+ *  section's), for the shared line editor. */
+function useLineSkin(ref: RefObject<Element | null>): LineSkin {
+  const c = useSkinColors(ref, LINE_COLORS)
+  const v = useSkinValues(ref, LINE_VALUES)
+  return useMemo(() => ({
+    primary1: c['Widget Primary 1'], primary2: c['Widget Primary 2'], secondary1: c['Widget Secondary 1'], secondary2: c['Widget Secondary 2'],
+    center: c['Widget Center Line'], accent1: c['Widget Accent 1'], accent2: c['Widget Accent 2'], background: c['Widget Background'],
+    lighten: c['Lighten Screen'], primaryDisabled: c['Widget Primary Disabled'], secondaryDisabled: c['Widget Secondary Disabled'],
+    lineWidth: v['Widget Line Width'], lineBoost: v['Widget Line Boost'], fillBoost: v['Widget Fill Boost'], fillFade: v['Widget Fill Fade'],
+  }), [c, v])
+}
+
 /** Where a routing's remap curve lives in the UI state (absent = linear). */
 export const remapKey = (m: { src: string; dst: string }) => `mxRemap:${m.src}>${m.dst}`
 
@@ -83,6 +101,8 @@ function RemapPanel({ api, n, mod }: { api: VitalApi; n: number; mod: Mod | null
   const pattern = (api.ui.mxPattern as number) ?? 0
   const gx = (api.ui.mxGridX as number) ?? 8, gy = (api.ui.mxGridY as number) ?? 1
   const [shownPaint, setShownPaint] = useState<boolean | null>(null)
+  const panel = useRef<HTMLDivElement>(null)
+  const skin = useLineSkin(panel)
   const painting = shownPaint ?? paint
   const on = !!mod
   // ModulationMatrix::loadFile: an LFO file as the remap curve, named after the file; the name opens the
@@ -107,14 +127,14 @@ function RemapPanel({ api, n, mod }: { api: VitalApi; n: number; mod: Mod | null
       (f) => void loadCurve(f), () => api.ui[fileKey] as string | undefined)
   }
   return (
-    <div className={`vmx-remap${on ? ' on' : ''}`} style={R(0, 634.6, 1004, 1032)}>
+    <div ref={panel} className={`vmx-remap${on ? ' on' : ''}`} style={R(0, 634.6, 1004, 1032)}>
       <span className="vmx-rtitle" style={{ left: 35 / 2, top: 0, height: 45 / 2 }}>MOD REMAP {n}</span>
       <div className="vmx-hbox" style={R(218, 7.4, 335, 37.4)}>
         <span className={`vmx-brush${painting ? ' on' : ''}`} title="Paint" onClick={() => api.setUi({ mxPaint: !paint })}>
           <svg viewBox="0 0 14 14"><path d="M12.5 1.5 L6 8 M5.4 8.6 C3.6 8.6 3 9.8 2.6 12 C4.6 11.8 6 11.2 6 9.2 Z" stroke="currentColor" strokeWidth={1.6} fill="currentColor" strokeLinecap="round" /></svg>
         </span>
         <span className="vmx-pattern" title="Paint pattern">
-          <PatternBox value={pattern} active={painting} w={36} h={14} onChange={(v) => api.setUi({ mxPattern: v })} />
+          <PatternBox value={pattern} active={painting} w={36} h={14} skin={skin} onChange={(v) => api.setUi({ mxPattern: v })} />
         </span>
       </div>
       <div className="vmx-hbox vmx-grid vt-chip flat" style={R(345.5, 7.4, 440, 37.4)}>
@@ -130,7 +150,7 @@ function RemapPanel({ api, n, mod }: { api: VitalApi; n: number; mod: Mod | null
         <span className="nm" onClick={browse}>{r.name}</span>
         <span className="arr" onClick={step(1)}>›</span>
       </div>
-      <LineEditor at={[7.8, 45, 997, 388.4]} className="vmx-rdisp" line={r} onChange={put} loop={false} active={on}
+      <LineEditor at={[7.8, 45, 997, 388.4]} className="vmx-rdisp" line={r} onChange={put} loop={false} active={on} skin={skin}
         gridX={gx} gridY={gy} paint={paint} pattern={pattern}
         onPaintShown={(v) => setShownPaint(v === paint ? null : v)}
         onScroll={(dir) => (painting
@@ -190,7 +210,8 @@ function AmountSlider({ api, i, mod }: { api: VitalApi; i: number; mod: Mod | nu
 
 /** The MORPH control (the row's power slider in CurveLookAndFeel): a rotary that drags up or right
  *  (Cmd/Ctrl fine), double-click resets; drawn as the curve powerScale(t, −value), an S through the
- *  middle when the row is bipolar, in Rotary Arc, greyed while the row has no connection. */
+ *  middle when the row is bipolar, in Rotary Arc, Widget Primary Disabled while the row has no
+ *  connection (the box's colour, matrix.css). */
 function MorphBox({ api, i, mod }: { api: VitalApi; i: number; mod: Mod | null }) {
   const g = useDrag((dx, dy, fine) => { if (mod) api.setMod(i, { power: Math.max(-10, Math.min(10, api.getMods()[i].power + ((dx + dy) * 20 / ROTARY_LENGTH) * (fine ? 0.1 : 1))) }) })
   const value = mod?.power ?? 0, power = -value
@@ -207,24 +228,25 @@ function MorphBox({ api, i, mod }: { api: VitalApi; i: number; mod: Mod | null }
   return (
     <div className="vmx-morph" style={R(446, 4.3, 485.5, 43.9)} {...(mod ? g : {})} title={mod ? `Morph: ${value.toFixed(2)}` : undefined}
       onDoubleClick={(e) => { e.stopPropagation(); if (mod) { api.checkpoint(); api.setMod(i, { power: 0 }) } }}>
-      <svg viewBox={`0 0 ${size} ${size}`}><path d={d} fill="none" stroke={mod ? '#aa88ff' : '#4c4f52'} strokeWidth={lw} strokeLinecap="round" strokeLinejoin="bevel" /></svg>
+      <svg viewBox={`0 0 ${size} ${size}`}><path d={d} fill="none" stroke="currentColor" strokeWidth={lw} strokeLinecap="round" strokeLinejoin="bevel" /></svg>
     </div>
   )
 }
 
 /** The row's live modulation meter (ModulationMeterReadouts): 2-pt bars along the destination box's
- *  bottom from its centre, out to the routing's scaled amount (modulation_amount_N), left lane then right. */
+ *  bottom from its centre, out to the routing's scaled amount (modulation_amount_N), left lane then right,
+ *  in Modulation Meter Left / Right. */
 function RowMeter({ m }: { m: Mod }) {
   const lanes = useRouteLanes(m.src, m.dst, 'amount')
   if (!lanes) return null
   const [x0, x1] = [764.5, 984], w = x1 - x0, mid = (x0 + x1) / 2
   return (
     <>
-      {[[0, '#1de952'], [1, '#1dc2e9']].map(([lane, color]) => {
-        const v = lanes[lane as number]
+      {([[0, sk('Modulation Meter Left')], [1, sk('Modulation Meter Right')]] as const).map(([lane, color]) => {
+        const v = lanes[lane]
         const t = Math.max(0, Math.min(1, 0.5 * ((Number.isFinite(v) ? v : 0) + 1)))
         const x = x0 + t * w
-        return <i key={lane} className="vmx-meter" style={{ ...R(Math.min(mid, x), 43.9 - 2 * 2000 / 1440, Math.max(mid, x), 43.9), background: color as string }} />
+        return <i key={lane} className="vmx-meter" style={{ ...R(Math.min(mid, x), 43.9 - 2 * 2000 / 1440, Math.max(mid, x), 43.9), background: color }} />
       })}
     </>
   )
@@ -301,7 +323,7 @@ export function MatrixPage() {
   const menuDst = menu?.kind === 'dst' ? (menu.row === 'new' ? pending.dst : mods[menu.row]?.dst) : undefined
 
   return (
-    <div className="vmx">
+    <div className="vmx" data-skin="Modulation Matrix">
       <div className="vmx-head" style={R(0, 0, 1004, 44.5)}>
         {COLS.map((c) => (
           <span key={c.key} className={`vmx-hcol${sort.key === c.key ? ' sorted' : ''}`} style={R(c.x0, 0, c.x1, 44.5)}
@@ -340,13 +362,13 @@ export function MatrixPage() {
       <RemapPanel api={api} n={sel + 1} mod={mods[sel] ?? null} />
 
       {menu?.kind === 'src' && (
-        <div className="vmx-menu vmx-srcmenu" style={{ left: 68 / 2, top: -68.4 / 2 } as CSSProperties} onClick={(e) => e.stopPropagation()}>
+        <div className="vmx-menu vmx-srcmenu" data-skin="Popup Browser" style={{ left: 68 / 2, top: -68.4 / 2 } as CSSProperties} onClick={(e) => e.stopPropagation()}>
           <button type="button" onClick={() => setSrc(menu.row, null)}>-</button>
           {SRC_IDS.map((id) => <button key={id} type="button" onClick={() => setSrc(menu.row, id)}>{srcName(id)}</button>)}
         </div>
       )}
       {menu?.kind === 'dst' && (
-        <div className="vmx-menu vmx-dstmenu" style={{ left: 985 / 2, top: 30 / 2 } as CSSProperties} onClick={(e) => e.stopPropagation()}>
+        <div className="vmx-menu vmx-dstmenu" data-skin="Popup Browser" style={{ left: 985 / 2, top: 30 / 2 } as CSSProperties} onClick={(e) => e.stopPropagation()}>
           <div className="col">
             {groups.map((g, j) => g === 'sep' ? <i key={j} className="sep" />
               : g === 'none' ? <button key={j} type="button" onClick={() => setDst(menu.row, null)}>-</button>

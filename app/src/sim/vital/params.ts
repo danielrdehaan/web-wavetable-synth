@@ -421,13 +421,6 @@ export const SOURCES: { id: string; name: string }[] = [
 ]
 export const sourceName = (id: string) => SOURCES.find((s) => s.id === id)?.name ?? id
 
-/** A destination's Rotary Arc colour: its section's override in Vital's default skin, else the default. */
-const ARC_COLORS: [RegExp, string][] = [
-  [/^(filter_1|filter_2|filter_fx)_/, '#ffb74d'], [/^compressor_/, '#1de9b6'], [/^delay_/, '#ff99e9'], [/^distortion_/, '#ff5252'],
-  [/^(env|lfo|random)_/, '#64ffda'], [/^eq_/, '#fff6e1'], [/^flanger_/, '#ffd740'], [/^phaser_/, '#40cfff'], [/^reverb_/, '#8fa0ff'],
-]
-export const arcColor = (dst: string) => ARC_COLORS.find(([re]) => re.test(dst))?.[1] ?? '#aa88ff'
-
 /** The engine's modulation sources and the destinations a modulation can reach (SoundEngine's
  *  getModulationSources / getMonoModulations, written by tools/modlists.mjs), each destination with
  *  Vital's display name and local description. */

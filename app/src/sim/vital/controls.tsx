@@ -1,10 +1,10 @@
-import { useState, type CSSProperties, type ReactNode } from 'react'
+import { useCallback, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { learnItems } from '../../engine/midi'
 import { routeSlot, useLiveLanes, useStatus } from '../../engine/status'
-import { amountScale, arcColor, modulatable, norm, PARAMS, shown, shownAmount, sourceName } from './params'
+import { amountScale, modulatable, norm, PARAMS, shown, shownAmount, sourceName } from './params'
 import { useVital, type MenuItem } from './ctx'
 import { R, useControlMenu, useDrag, useModRange, useSlider, valueFromText, type Rect } from './hooks'
-
+import { sk, useSkin, useSkinValues, type ColorKey, type Skin, type SkinSection } from './skin'
 
 // Vital's controls, drawn as its default skin draws them and behaving as its controls do (useSlider):
 // drag (Cmd/Ctrl for fine), wheel, double-click for the default, Alt-click to type a value, right-click
@@ -12,6 +12,35 @@ import { R, useControlMenu, useDrag, useModRange, useSlider, valueFromText, type
 // A control a modulator can reach is a drop target while a modulator is dragged; once connected it
 // shows the modulation's range and, for the source in focus, a depth ring to drag.
 // Positions are the capture's 2000-wide frame, halved (`R`), relative to the enclosing section.
+// Colours come from the skin (`var(--sk-*)`), so a control takes its section's overrides (data-skin on an
+// ancestor); the `color` / `track` props still win when a caller passes them.
+
+/** Sections whose overrides sit inside another's (EffectsInterface's All Effects holds each effect). */
+const SKIN_PARENT: Partial<Record<SkinSection, SkinSection>> = Object.fromEntries(
+  (['Chorus', 'Compressor', 'Delay', 'Distortion', 'Equalizer', 'Effects Filter', 'Flanger', 'Phaser', 'Reverb'] as const).map((s) => [s, 'All Effects']))
+
+/** A skin colour as `section` sees it (findColour walking up its parents to the globals). */
+export function skinColor(skin: Skin, section: SkinSection | null, key: ColorKey): string {
+  for (let s: SkinSection | undefined = section ?? undefined; s; s = SKIN_PARENT[s]) {
+    const c = skin.overrides[s]?.colors[key]
+    if (c) return c
+  }
+  return skin.colors[key] ?? '#000000'
+}
+
+/** The section a destination's control sits in, for its Rotary Arc colour away from the control. */
+const DESTINATION_SECTIONS: [RegExp, SkinSection][] = [
+  [/^(filter_1|filter_2)_/, 'Filter'], [/^filter_fx_/, 'Effects Filter'], [/^compressor_/, 'Compressor'], [/^delay_/, 'Delay'],
+  [/^distortion_/, 'Distortion'], [/^env_/, 'Envelope'], [/^lfo_/, 'Lfo'], [/^random_/, 'RandomLfo'], [/^eq_/, 'Equalizer'],
+  [/^flanger_/, 'Flanger'], [/^phaser_/, 'Phaser'], [/^reverb_/, 'Reverb'], [/^chorus_/, 'Chorus'], [/^osc_/, 'Oscillator'],
+  [/^sample_/, 'Sample'], [/^macro_/, 'Macro'],
+]
+/** A destination's Rotary Arc colour in the current skin (its section's override, else the global), as a
+ *  source's depth knobs take it (ModulationAmountKnob::setDestinationComponent). */
+export function useArcColor(): (dst: string) => string {
+  const { skin } = useSkin()
+  return useCallback((dst: string) => skinColor(skin, DESTINATION_SECTIONS.find(([re]) => re.test(dst))?.[1] ?? null, 'Rotary Arc'), [skin])
+}
 
 export function Box({ at, className = '', children, style, ...rest }: { at: Rect; className?: string; children?: ReactNode; style?: CSSProperties; ref?: React.Ref<HTMLDivElement> } & React.HTMLAttributes<HTMLDivElement>) {
   return <div className={`vt-b ${className}`} style={{ ...R(...at), ...style }} {...rest}>{children}</div>
@@ -60,10 +89,13 @@ export function ModRing({ i, style, side = 'dest', popup = 'below' }: { i: numbe
   const api = useVital()
   const m = api.mods[i]
   const [hot, setHot] = useState(false)
+  const arcColor = useArcColor()
   const g = useDrag((dx, dy, fine) => api.setMod(i, { amt: Math.max(-1, Math.min(1, (api.getMods()[i]?.amt ?? 0) + (2 * (dx + dy) / RING_LENGTH) * (fine ? 0.1 : 1))) }))
   if (!m) return null
   const deg = Math.abs(m.amt) * 360
-  const color = side === 'source' ? arcColor(m.dst) : m.src === api.focusSrc ? '#64ffda' : '#aa88ff'
+  // The ring is the ModulationManager's (Modulation Drag Drop), so away from the source it takes that
+  // section's colours, not the control's (--vt-mdd-*, set by DragGhost's SkinLayers).
+  const color = side === 'source' ? arcColor(m.dst) : m.src === api.focusSrc ? 'var(--vt-mdd-modulation-meter-control)' : 'var(--vt-mdd-rotary-arc)'
   const menu = (e: React.MouseEvent) => {
     e.preventDefault(); e.stopPropagation()
     api.openMenu({ w: 100, items: [
@@ -81,7 +113,7 @@ export function ModRing({ i, style, side = 'dest', popup = 'below' }: { i: numbe
       onPointerDown={(e) => { if (e.button === 1) { e.preventDefault(); e.stopPropagation(); api.checkpoint(); api.setMod(i, { bypass: !m.bypass }); return } api.setFocusSrc(m.src); g.onPointerDown(e) }}
       onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => { e.stopPropagation(); api.checkpoint(); api.removeMod(i); api.setUi({ ringHot: undefined }) }}
       onPointerEnter={() => { setHot(true); api.setUi({ ringHot: i }) }} onPointerLeave={() => { setHot(false); api.setUi({ ringHot: undefined }) }}>
-      <span className="vt-ringdot" style={{ background: `conic-gradient(${m.amt < 0 ? 'from ' + (360 - deg) + 'deg, ' : ''}${color} ${deg}deg, #1d2125 0)` }} />
+      <span className="vt-ringdot" style={{ background: `conic-gradient(${m.amt < 0 ? 'from ' + (360 - deg) + 'deg, ' : ''}${color} ${deg}deg, var(--vt-mdd-widget-background) 0)` }} />
       {hot && <Bubble at={popup} text={`${side === 'source' ? PARAMS[m.dst]?.name ?? m.dst : sourceName(m.src)}: ${shownAmount(m.dst, m.amt)}`} />}
     </span>
   )
@@ -125,9 +157,9 @@ export function dropTarget(api: { dragSrc: string | null; mods: { src: string; d
 }
 
 /** Vital's modulation meter colours (Modulation Meter / Left / Right): where only the left lane reaches
- *  the meter is green, only the right blue, both teal. The range shown while a ring is hovered is the
- *  centre colour too. */
-export const METER = { center: '#1de9b6', left: '#1de952', right: '#1dc2e9' }
+ *  the meter is the left colour, only the right the right, both the centre. The range shown while a ring
+ *  is hovered is the centre colour too. CSS colours, for styles. */
+export const METER = { center: sk('Modulation Meter'), left: sk('Modulation Meter Left'), right: sk('Modulation Meter Right') }
 
 /** A modulated control's live left and right positions (0–1 of its range) from the engine, or null when
  *  it isn't modulated or the engine isn't running. Mono totals report with no voice playing (a macro
@@ -165,8 +197,15 @@ function useShownRange(p: string) {
   return !engineOn || hovered || api.dragSrc ? range : null
 }
 
-/** Vital's rotary. `x, y, d`: centre and body diameter in the capture's frame. */
-export function Knob({ p, x, y, d, color = '#aa88ff', bipolar, dim = false, label, labelAt, track = '#4c4f52', popup = 'below', prefix = '', snap, defaultValue }: {
+/** The skin values a rotary is drawn with (OpenGlSlider::setSliderDisplayValues, SynthSlider::
+ *  drawRotaryShadow, ModulationMeter::getMeterBounds), as its section has them. */
+const KNOB_VALUES = ['Knob Arc Size', 'Knob Arc Thickness', 'Knob Body Size', 'Knob Handle Length', 'Knob Mod Meter Arc Size',
+  'Knob Mod Meter Arc Thickness', 'Knob Shadow Width', 'Knob Shadow Offset'] as const
+
+/** Vital's rotary. `x, y, d`: centre and body diameter in the capture's frame (the default skin's 40 pt
+ *  body); the skin's knob values size the arc, body, handle, meter and shadow relative to that. `color`
+ *  and `track` override the skin's Rotary Arc / Rotary Arc Unselected. */
+export function Knob({ p, x, y, d, color, bipolar, dim = false, label, labelAt, track, popup = 'below', prefix = '', snap, defaultValue }: {
   p: string; x: number; y: number; d: number; color?: string; bipolar?: boolean; dim?: boolean; label?: string; labelAt?: Rect; track?: string
   popup?: PopupAt; prefix?: string; snap?: number; defaultValue?: number
 }) {
@@ -176,34 +215,62 @@ export function Knob({ p, x, y, d, color = '#aa88ff', bipolar, dim = false, labe
   const modulated = useModRange(p) !== null
   const range = useShownRange(p)
   const live = useLiveNorm(p, modulated)
+  const ref = useRef<HTMLDivElement>(null)
+  const kv = useSkinValues(ref, KNOB_VALUES)
+  const shadowId = useId()
   const pd = PARAMS[p]
   const bip = bipolar ?? (pd ? pd.min < 0 && pd.max > 0 && Math.abs(pd.min) === pd.max : false)
   const t = norm(p, api.v[p] ?? 0)
-  // Skin: body 40 pt, arc 32 pt; the meter 39 pt across, 3 pt thick; the hovered range 2 pt thick just
-  // outside the meter (its bounds grown by 2).
-  const D = d / 2, c = D / 2, body = c - 0.6, ar = body * 0.8, pt = body / 20, meterR = 18 * pt, mr = 20.5 * pt
-  const a = (u: number) => ((135 + 270 * u) * Math.PI) / 180
-  const at = (u: number, k: number) => [c + k * Math.cos(a(u)), c + k * Math.sin(a(u))]
+  // `u`: stage px per Vital point at this knob's size (the default 40 pt body fills `d` less its border).
+  // The arc sits at Knob Arc Size / 2, the handle runs Knob Handle Length of the way in from it, the
+  // meter is Knob Mod Meter Arc Size across and Thickness thick, the hovered range 2 pt thick just outside
+  // the meter (its bounds grown by 2). Thickness doesn't scale with the knob, as in Vital: the default
+  // 2.4 pt draws the track 1.4 px and the value arc and handle 1.7 px, as captured.
+  const D = d / 2, c = D / 2, u = (c - 0.6) / 20
+  const body = (kv['Knob Body Size'] / 2) * u, ar = (kv['Knob Arc Size'] / 2) * u
+  const tk = kv['Knob Arc Thickness'] / 2.4
+  const meterT = kv['Knob Mod Meter Arc Thickness'], meterR = (kv['Knob Mod Meter Arc Size'] / 2 - meterT / 2) * u
+  const mr = (kv['Knob Mod Meter Arc Size'] / 2 + 1) * u
+  const a = (v: number) => ((135 + 270 * v) * Math.PI) / 180
+  const at = (v: number, k: number) => [c + k * Math.cos(a(v)), c + k * Math.sin(a(v))]
   const arc = (u0: number, u1: number, k: number) => {
     const lo = Math.max(0, Math.min(u0, u1)), hi = Math.min(1, Math.max(u0, u1))
     const [x0, y0] = at(lo, k), [x1, y1] = at(hi, k)
     return `M ${x0} ${y0} A ${k} ${k} 0 ${(hi - lo) * 270 > 180 ? 1 : 0} 1 ${x1} ${y1}`
   }
-  const [h0x, h0y] = at(t, ar * 0.5), [h1x, h1y] = at(t, ar)
+  const [h0x, h0y] = at(t, ar * (1 - kv['Knob Handle Length'])), [h1x, h1y] = at(t, ar)
   const from = bip ? 0.5 : 0
   const drop = modulatable(p) && !dim
   const thick = sl.hover ? 1.4 : 1 // OpenGlSlider::redoImage: the arc thickens on hover
+  // drawRotaryShadow: a Shadow-coloured radial glow Knob Shadow Width past the body, its centre Knob
+  // Shadow Offset down, solid to the body's edge less the offset and fading in quarters (0.5625, 0.25,
+  // 0.0625 of the alpha) to nothing.
+  const shadowW = kv['Knob Shadow Width'] * u, shadowR = body + shadowW
+  const shadowStart = shadowR > 0 ? Math.max(0, body - Math.abs(kv['Knob Shadow Offset'] * u)) / shadowR : 0
+  // The track and the arc: the skin's unselected / selected rotary colours (the Disabled ones while the
+  // control is inactive; an inactive value arc is drawn in the track's colour, as captured).
+  const trackColor = track ?? sk(dim ? 'Rotary Arc Unselected Disabled' : 'Rotary Arc Unselected')
+  const arcStroke = dim ? sk('Rotary Arc Unselected Disabled') : color ?? sk('Rotary Arc')
   return (
     <>
       <div className={`vt-knob${dim ? ' dim' : ''}${drop && dropTarget(api, p) ? ' target' : ''}`} style={{ left: x / 2 - c, top: y / 2 - c, width: D, height: D }}
-        data-param={p} {...(drop ? { 'data-drop': p } : {})} {...sl.handlers} onContextMenu={menu}>
+        data-param={p} {...(drop ? { 'data-drop': p } : {})} {...sl.handlers} ref={(el) => { ref.current = el; sl.handlers.ref(el) }} onContextMenu={menu}>
         <svg viewBox={`0 0 ${D} ${D}`} aria-hidden="true">
-          <circle cx={c} cy={c} r={body} fill="#262a2e" stroke="#4c4f52" strokeWidth={0.6} />
-          <path d={arc(0, 1, ar)} fill="none" stroke={track} strokeWidth={1.4 * thick} strokeLinecap="round" />
-          {Math.abs(t - from) > 0.004 && <path d={arc(from, t, ar)} fill="none" stroke={dim ? '#4c4f52' : color} strokeWidth={1.7 * thick} strokeLinecap="round" />}
-          {live && meterSegments(t, live).map((g, k) => <path key={k} d={arc(g.lo, g.hi, meterR)} fill="none" stroke={g.color} strokeWidth={3 * pt} />)}
-          {range && <path d={arc(t + range.lo, t + range.hi, mr)} fill="none" stroke={METER.center} strokeWidth={2 * pt} />}
-          <line x1={h0x} y1={h0y} x2={h1x} y2={h1y} stroke="#ffffff" strokeWidth={1.7} strokeLinecap="round" />
+          {shadowW > 0 && <>
+            <defs>
+              <radialGradient id={shadowId} gradientUnits="userSpaceOnUse" cx={c} cy={c + kv['Knob Shadow Offset'] * u} r={shadowR}>
+                {([[0, 1], [shadowStart, 1], [1 - (1 - shadowStart) * 0.75, 0.5625], [1 - (1 - shadowStart) * 0.5, 0.25], [1 - (1 - shadowStart) * 0.25, 0.0625], [1, 0]] as const)
+                  .map(([o, k], i) => <stop key={i} offset={o} style={{ stopColor: sk('Shadow') }} stopOpacity={k} />)}
+              </radialGradient>
+            </defs>
+            <circle cx={c} cy={c + kv['Knob Shadow Offset'] * u} r={shadowR} fill={`url(#${shadowId})`} />
+          </>}
+          {body > 0 && <circle cx={c} cy={c} r={body} strokeWidth={0.6} style={{ fill: sk('Rotary Body'), stroke: sk('Rotary Body Border') }} />}
+          <path d={arc(0, 1, ar)} fill="none" strokeWidth={1.4 * tk * thick} strokeLinecap="round" style={{ stroke: trackColor }} />
+          {Math.abs(t - from) > 0.004 && <path d={arc(from, t, ar)} fill="none" strokeWidth={1.7 * tk * thick} strokeLinecap="round" style={{ stroke: arcStroke }} />}
+          {live && meterSegments(t, live).map((g, k) => <path key={k} d={arc(g.lo, g.hi, meterR)} fill="none" strokeWidth={meterT * u} style={{ stroke: g.color }} />)}
+          {range && <path d={arc(t + range.lo, t + range.hi, mr)} fill="none" strokeWidth={2 * u} style={{ stroke: METER.center }} />}
+          <line x1={h0x} y1={h0y} x2={h1x} y2={h1y} strokeWidth={1.7 * tk} strokeLinecap="round" style={{ stroke: sk('Rotary Hand') }} />
         </svg>
         {sl.popup && <Bubble at={popup} text={prefix + shown(p, api.v[p] ?? 0)} />}
         {sl.editing && <TextEntry p={p} onDone={() => sl.setEditing(false)} />}
@@ -214,8 +281,9 @@ export function Knob({ p, x, y, d, color = '#aa88ff', bipolar, dim = false, labe
   )
 }
 
-/** A horizontal slider (filter cutoff and blend, LFO phase): a track, a fill from `fill` and a thumb. */
-export function HSlider({ p, at, thumb = 30, className = '', fillFrom, dim = false, color = '#6a6d70', rings = true, popup = 'below', prefix = '', snap, ringsAt = 'above' }: {
+/** A horizontal slider (filter cutoff and blend, LFO phase): a Linear Slider Unselected track, a Linear
+ *  Slider fill from `fillFrom` and a Linear Slider Thumb (`color` overrides the thumb). */
+export function HSlider({ p, at, thumb = 30, className = '', fillFrom, dim = false, color, rings = true, popup = 'below', prefix = '', snap, ringsAt = 'above' }: {
   p: string; at: Rect; thumb?: number; className?: string; fillFrom?: number; dim?: boolean; color?: string; rings?: boolean
   popup?: PopupAt; prefix?: string; snap?: number
   /** setModulationPlacement: 'above' (cutoff, phase bars) or Vital's default 'below' (blend bars). */
@@ -351,12 +419,12 @@ export function Toggle({ p, at, children, className = 'vt-pill', onColor }: { p:
   )
 }
 
-/** A section's power button. */
-export function Power({ p, x, y, color = '#aa88ff', className = '' }: { p: string; x: number; y: number; color?: string; className?: string }) {
+/** A section's power button: Power Button On / Off (`color` overrides the on colour). */
+export function Power({ p, x, y, color, className = '' }: { p: string; x: number; y: number; color?: string; className?: string }) {
   const api = useVital()
   const on = (api.v[p] ?? 0) >= 0.5
   return (
-    <span className={`vt-dot ${className}${on ? ' on' : ''}`} style={{ left: x / 2 - 5.5, top: y / 2 - 5.5, background: on ? color : undefined }} title={PARAMS[p]?.name} data-param={p}
+    <span className={`vt-dot ${className}${on ? ' on' : ''}`} style={{ left: x / 2 - 5.5, top: y / 2 - 5.5, background: on && color ? color : undefined }} title={PARAMS[p]?.name} data-param={p}
       onClick={(e) => { e.stopPropagation(); api.checkpoint(); api.set(p, on ? 0 : 1) }} />
   )
 }

@@ -30,9 +30,9 @@ const page = (children: ReactNode) => <div className="vt-page" style={R(127, 108
 function FxPart({ i }: { i: number }) {
   const fx = FX[i], P = PANELS[i]
   return page(
-    <div className="vfx-page">
+    <div className="vfx-page" data-skin="All Effects">
       <div className="vfx-view" style={R(PX - 127, VIEW_TOP - 108, 1137 - 127, VIEW_TOP - 108 + VIEW_H)}>
-        <div className="vfx-content"><Panel fx={fx} top={0}><P color={fx.color} /></Panel></div>
+        <div className="vfx-content"><Panel fx={fx} top={0}><P /></Panel></div>
       </div>
     </div>,
   )

@@ -100,7 +100,7 @@ export function PopupBrowser() {
   return (
     <>
       {areas.map((a, i) => <div key={i} className="vt-popclose" style={R(...a)} onPointerDown={close} />)}
-      <div className="vt-popbrowser" style={R(x0, y0, x1, y1)} onPointerDown={(e) => e.stopPropagation()}>
+      <div className="vt-popbrowser" data-skin="Popup Browser" style={R(x0, y0, x1, y1)} onPointerDown={(e) => e.stopPropagation()}>
         <input className="vt-popsearch" style={R(5.6, 5.6, half - 5.6, top - 5.6)} placeholder="Search" value={search}
           onChange={(e) => setSearch(e.currentTarget.value)} />
         <svg className="vt-popx" style={R(x1 - x0 - top, 0, x1 - x0, top)} viewBox="0 0 1 1" onClick={close} aria-label="Close">

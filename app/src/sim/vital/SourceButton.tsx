@@ -1,9 +1,10 @@
 import { useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { SourceSlot } from '../../engine/SourceSlot'
-import { Box, ModRing } from './controls'
+import { Box, ModRing, useArcColor } from './controls'
 import { useVital } from './ctx'
-import { arcColor, PARAMS } from './params'
+import { PARAMS } from './params'
+import { sk } from './skin'
 
 // A modulation source's button (modulation_button.cpp) and the depth knobs it carries
 // (ModulationManager::positionModulationAmountSliders): press to make it the current modulator, drag
@@ -47,6 +48,7 @@ export function SourceButton({ src, at, className, title, selected = false, onCl
   children?: ReactNode
 }) {
   const api = useVital()
+  const arcColor = useArcColor()
   const [hover, setHover] = useState(false)
   const box = useRef<HTMLDivElement>(null)
   const used = api.mods.map((m, j) => ({ m, j })).filter(({ m }) => m.src === src)
@@ -97,7 +99,7 @@ export function SourceButton({ src, at, className, title, selected = false, onCl
           <span className={`vt-srcexpand${expanded ? ' on' : ''}`} style={{ left: area.x, top: area.y, width: area.w, height: area.h }}
             title={`${used.length} modulations`}
             onPointerDown={(e) => { e.stopPropagation(); api.setUi({ srcExpanded: expanded ? undefined : src }) }}>
-            <ExpandPreview colors={used.map(({ m }) => (m.bypass ? '#4c4f52' : arcColor(m.dst)))} w={area.w} h={area.h} />
+            <ExpandPreview colors={used.map(({ m }) => (m.bypass ? sk('Widget Primary Disabled') : arcColor(m.dst)))} w={area.w} h={area.h} />
           </span>
         )}
       {!inside && expanded && <Callout src={src} anchor={box.current} rings={used.map(({ j }) => j)} w={w} ratio={area.h / area.w} />}
@@ -115,7 +117,7 @@ function ExpandPreview({ colors, w, h }: { colors: string[]; w: number; h: numbe
     <svg viewBox={`0 0 ${w} ${h}`} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
       {colors.map((c, i) => {
         const col = i % columns, row = Math.floor(i / columns)
-        return <circle key={i} cx={col * cell + cell / 2} cy={h - yOffset - (row + 1) * cell + cell / 2} r={cell * 0.3} fill="none" stroke={c} strokeWidth={1.4} />
+        return <circle key={i} cx={col * cell + cell / 2} cy={h - yOffset - (row + 1) * cell + cell / 2} r={cell * 0.3} fill="none" style={{ stroke: c }} strokeWidth={1.4} />
       })}
     </svg>
   )

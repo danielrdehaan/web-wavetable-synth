@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { useVital } from '../sim/vital/ctx'
 import { PARAMS } from '../sim/vital/params'
+import { sk } from '../sim/vital/skin'
 import { useEngine } from './EngineContext'
 import { useLiveLanes } from './status'
 
@@ -12,6 +13,9 @@ import { useLiveLanes } from './status'
 
 export interface EqBandIds { cutoff: string; resonance?: string; gain: string; mode?: string }
 const SCALE = 1000 / 1440
+/** The fill's opacity away from the line: 1 − Widget Fill Fade. */
+const FADE = 'calc(1 - var(--sk-widget-fill-fade))'
+const OFF_FILL = 'rgb(from var(--sk-widget-secondary-disabled) r g b / calc(alpha * 0.6))'
 
 /** A control's modulated left and right values while modulated, else its value; 0 when the band has no
  *  such control. */
@@ -65,9 +69,11 @@ export function useEqResponse(bands: [EqBandIds | null, EqBandIds | null, EqBand
 }
 
 /** The left channel's response (`data[0]`, Widget Primary / Secondary 1) over the right's (`data[1]`,
- *  … 2), the right only while on (EqualizerResponse::render). */
-export function EqCurve({ data, w, h, axis, line, fill, line2 = line, fill2 = fill, on, px = 1 }: {
-  data: Float32Array[]; w: number; h: number; axis: { min: number; max: number }; line: string; fill: string; line2?: string; fill2?: string; on: boolean
+ *  … 2), the right only while on (EqualizerResponse::render); off, the left in Widget Primary Disabled
+ *  over Widget Secondary Disabled at 60 %. Lines are Widget Line Width wide and fills fade by Widget Fill
+ *  Fade, from the skin section the curve is drawn in. */
+export function EqCurve({ data, w, h, axis, on, px = 1 }: {
+  data: Float32Array[]; w: number; h: number; axis: { min: number; max: number }; on: boolean
   /** Drawing units per stage px (2 inside the effect screens' frame-unit SVGs), for the line width. */
   px?: number
 }) {
@@ -83,16 +89,16 @@ export function EqCurve({ data, w, h, axis, line, fill, line2 = line, fill2 = fi
   const layer = (d: string, stroke: string, f: string, id: string) => (
     <>
       <defs>
-        <linearGradient id={id} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={f} /><stop offset="1" stopColor={f} stopOpacity={0.7} /></linearGradient>
+        <linearGradient id={id} x1="0" y1="0" x2="0" y2="1"><stop offset="0" style={{ stopColor: f }} /><stop offset="1" style={{ stopColor: f, stopOpacity: FADE }} /></linearGradient>
       </defs>
       <path d={`${d}L${w} ${zero}L0 ${zero}Z`} fill={`url(#${id})`} />
-      <path d={d} fill="none" stroke={stroke} strokeWidth={2 * SCALE * px} strokeLinejoin="round" />
+      <path d={d} fill="none" style={{ stroke, strokeWidth: `calc(var(--sk-widget-line-width) * ${+(SCALE * px).toFixed(5)})` }} strokeLinejoin="round" />
     </>
   )
   return (
     <>
-      {on && layer(path(data[1]), line2, fill2, `${gradient}r`)}
-      {layer(path(data[0]), on ? line : '#666666', on ? fill : 'rgba(76,76,76,0.6)', `${gradient}l`)}
+      {on && layer(path(data[1]), sk('Widget Primary 2'), sk('Widget Secondary 2'), `${gradient}r`)}
+      {layer(path(data[0]), sk(on ? 'Widget Primary 1' : 'Widget Primary Disabled'), on ? sk('Widget Secondary 1') : OFF_FILL, `${gradient}l`)}
     </>
   )
 }

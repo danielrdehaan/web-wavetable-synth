@@ -88,7 +88,7 @@ export function SaveOverlay() {
   const kind = preset ? 'Preset' : req.kind === 'wavetable' ? 'Wavetable' : 'LFO'
 
   return (
-    <div className="vt-overlay" onPointerUp={(e) => { if (e.target === e.currentTarget) close() }}
+    <div className="vt-overlay" data-skin="Overlays" onPointerUp={(e) => { if (e.target === e.currentTarget) close() }}
       onKeyDown={(e) => { if (e.key === 'Escape') close() }}>
       {overwrite ? (
         <div className="vt-ovbox" style={{ width: 340 * PT, height: 160 * PT }}>

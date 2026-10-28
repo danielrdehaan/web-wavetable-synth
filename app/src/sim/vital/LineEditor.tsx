@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
 import { onStatusPacket } from '../../engine/status'
 import { markDragEnd } from '../simContext'
 import { Box } from './controls'
@@ -8,6 +8,7 @@ import { powerCurve } from './draw'
 import { boostLane, boostRange, decayBoosts, fillGradient } from './lineBoost'
 import { requestSave } from './SaveOverlay'
 import { lineToEngine } from '../../engine/shapes'
+import { useSkinColors, useSkinValues } from './skin'
 import { type Line, MAX_POINTS, MAX_POWER, copyLine, flipHorizontal, flipVertical, LINEAR, PAINT_SHAPES, renderLine, smoothTransition, valueAt } from './line'
 
 // Vital's line editor (line_editor.cpp), with the LFO's playhead and trail (lfo_editor.cpp) and the
@@ -37,12 +38,21 @@ export interface LineSkin {
   primaryDisabled: string; secondaryDisabled: string
   lineWidth: number; lineBoost: number; fillBoost: number; fillFade: number
 }
-/** The Lfo / RandomLfo / Modulation Matrix skin sections (default.vitalskin). */
-export const LFO_SKIN: LineSkin = {
-  primary1: '#1de9b6', primary2: '#40c4ff', secondary1: 'rgba(29,233,182,0.212)', secondary2: 'rgba(64,196,255,0.212)',
-  center: '#64ffda', accent1: 'rgba(255,255,255,0.733)', accent2: 'rgba(255,255,255,0.067)', background: '#1d2125',
-  lighten: 'rgba(255,255,255,0.133)', primaryDisabled: '#4c4f52', secondaryDisabled: 'rgba(102,102,102,0.133)',
-  lineWidth: 2, lineBoost: 1, fillBoost: 1.6, fillFade: 0.3,
+
+const LINE_COLORS = ['Widget Primary 1', 'Widget Primary 2', 'Widget Secondary 1', 'Widget Secondary 2', 'Widget Center Line', 'Widget Accent 1',
+  'Widget Accent 2', 'Widget Background', 'Lighten Screen', 'Widget Primary Disabled', 'Widget Secondary Disabled'] as const
+const LINE_VALUES = ['Widget Line Width', 'Widget Line Boost', 'Widget Fill Boost', 'Widget Fill Fade'] as const
+
+/** The line skin as `ref`'s element sees it (the Lfo, Envelope, Modulation Matrix … section around it). */
+export function useLineSkin(ref: RefObject<Element | null>): LineSkin {
+  const c = useSkinColors(ref, LINE_COLORS)
+  const v = useSkinValues(ref, LINE_VALUES)
+  return {
+    primary1: c['Widget Primary 1'], primary2: c['Widget Primary 2'], secondary1: c['Widget Secondary 1'], secondary2: c['Widget Secondary 2'],
+    center: c['Widget Center Line'], accent1: c['Widget Accent 1'], accent2: c['Widget Accent 2'], background: c['Widget Background'],
+    lighten: c['Lighten Screen'], primaryDisabled: c['Widget Primary Disabled'], secondaryDisabled: c['Widget Secondary Disabled'],
+    lineWidth: v['Widget Line Width'], lineBoost: v['Widget Line Boost'], fillBoost: v['Widget Fill Boost'], fillFade: v['Widget Fill Fade'],
+  }
 }
 
 /** The live input the editor animates: an LFO's encoded phase, or a remap's raw source value. */
@@ -85,21 +95,31 @@ const fromModel = (l: Line, pts: V, pw: number[]): Line => ({ ...l, pts: pts.map
 /** The in-app clipboard for Copy / Paste (Vital uses the system one; reading it needs a permission). */
 let clipboard: Line | null = null
 
+/** A skin colour (#rrggbb or rgb()/rgba(), as the skin writes them) as [r, g, b, a]. */
+export function rgba(c: string): [number, number, number, number] {
+  const s = c.trim()
+  if (s.startsWith('#')) {
+    const h = s.length === 4 ? [...s.slice(1)].map((x) => x + x).join('') : s.slice(1)
+    return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16), h.length >= 8 ? parseInt(h.slice(6, 8), 16) / 255 : 1]
+  }
+  const m = s.match(/-?[\d.]+/g)?.map(Number) ?? [0, 0, 0, 0]
+  return [m[0] ?? 0, m[1] ?? 0, m[2] ?? 0, m[3] ?? 1]
+}
+const css = ([r, g, b, a]: number[]) => `rgba(${Math.round(r)},${Math.round(g)},${Math.round(b)},${a.toFixed(3)})`
 /** Mixes colour `a` toward `b` by t (Colour::interpolatedWith). */
 export function mix(a: string, b: string, t: number): string {
-  const p = (c: string) => {
-    if (c.startsWith('#')) return [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16), 1]
-    const m = c.match(/[\d.]+/g)!.map(Number)
-    return [m[0], m[1], m[2], m[3] ?? 1]
-  }
-  const x = p(a), y = p(b)
-  const r = x.map((v, i) => v + (y[i] - v) * t)
-  return `rgba(${Math.round(r[0])},${Math.round(r[1])},${Math.round(r[2])},${r[3].toFixed(3)})`
+  const x = rgba(a), y = rgba(b)
+  return css(x.map((v, i) => v + (y[i] - v) * t))
 }
-/** An rgba() colour with its alpha multiplied (Colour::withMultipliedAlpha). */
-export const withAlpha = (c: string, mult: number) => {
-  const m = c.match(/[\d.]+/g)!.map(Number)
-  return `rgba(${m[0]},${m[1]},${m[2]},${((m[3] ?? 1) * mult).toFixed(3)})`
+/** A colour with its alpha multiplied (Colour::withMultipliedAlpha). */
+export const withAlpha = (c: string, mult: number) => { const [r, g, b, a] = rgba(c); return css([r, g, b, a * mult]) }
+/** `fg` drawn over `bg` (Colour::overlaidWith). */
+export function over(bg: string, fg: string): string {
+  const [br, bgg, bb, ba] = rgba(bg), [fr, fgg, fb, fa] = rgba(fg)
+  const a = fa + ba * (1 - fa)
+  if (a <= 0) return css([0, 0, 0, 0])
+  const ch = (f: number, b: number) => (f * fa + b * ba * (1 - fa)) / a
+  return css([ch(fr, br), ch(fgg, bgg), ch(fb, bb), a])
 }
 
 export function LineEditor(props: LineEditorProps) {
@@ -107,15 +127,18 @@ export function LineEditor(props: LineEditorProps) {
   const { at } = props
   const active = props.active ?? true
   const canvas = useRef<HTMLCanvasElement>(null)
+  // The section's line skin (or the caller's), read from the editor's own element.
+  const sectionSkin = useLineSkin(canvas)
   const [entry, setEntry] = useState<{ index: number; phase: boolean; x: number; y: number; text: string } | null>(null)
   // Everything the pointer handlers and the draw loop share, kept out of React so a drag doesn't
   // re-render the section 60 times a second.
   const st = useRef({
     props, activePoint: -1, activePower: -1, activeGrid: -1, dragging: false, last: { x: 0, y: 0 }, temporary: false,
     lanes: [boostLane(TOTAL_POINTS), boostLane(TOTAL_POINTS)], lastPhase: [0, 0], lastVoice: [-1, -1],
-    positions: null as number[] | null, showPositions: false, dirty: true, began: false,
+    positions: null as number[] | null, showPositions: false, dirty: true, began: false, skin: sectionSkin,
   })
   st.current.props = props
+  st.current.skin = props.skin ?? sectionSkin
   st.current.dirty = true
 
   const size = () => {
@@ -493,7 +516,7 @@ export function LineEditor(props: LineEditorProps) {
       g.clearRect(0, 0, W, H)
       const p = s.props
       const on = p.active ?? true
-      const sk = p.skin ?? LFO_SKIN
+      const sk = s.skin
       const l = p.line
       const pts = toModel(l), pw = l.pts.map((_, i) => l.pw[i] ?? 0), n = pts.length
       const isPainting = p.paint !== s.temporary
@@ -645,18 +668,21 @@ const PATTERN_NAMES = ['Step', 'Half', 'Down', 'Up', 'Tri'] // strings::kPaintPa
 
 /** The paint pattern selector (PaintPatternSelector::paint): the pattern drawn filled from the bottom,
  *  in the skin's colours while painting and Lighten Screen otherwise; click for the list, wheel steps. */
-export function PatternBox({ value, active, onChange, skin = LFO_SKIN, w, h }: { value: number; active: boolean; onChange: (v: number) => void; skin?: LineSkin; w: number; h: number }) {
+export function PatternBox({ value, active, onChange, skin, w, h }: { value: number; active: boolean; onChange: (v: number) => void; skin?: LineSkin; w: number; h: number }) {
   const api = useVital()
+  const ref = useRef<SVGSVGElement>(null)
+  const sectionSkin = useLineSkin(ref)
+  const sk = skin ?? sectionSkin
   const wheel = useWheel((_dx, dy) => { if (dy) onChange((value + (dy > 0 ? 1 : -1) + PATTERN_NAMES.length) % PATTERN_NAMES.length) })
   const pad = 2.75, height = h - 2 * pad, width = w - 2 * pad
   const shape = PAINT_SHAPES[value] ?? PAINT_SHAPES[0]
   const d = `M${pad} ${pad + height}` + shape.map(([t, level]) => `L${pad + t * width} ${pad + (1 - level) * height}`).join('') + `L${pad + width} ${pad + height}`
   const lw = Math.max(1, Math.round(h * 0.05 * 2) / 2)
   return (
-    <svg ref={wheel} className="mini vt-pattern" viewBox={`0 0 ${w} ${h}`} style={{ cursor: 'pointer' }}
+    <svg ref={(el) => { ref.current = el; wheel(el) }} className="mini vt-pattern" viewBox={`0 0 ${w} ${h}`} style={{ cursor: 'pointer' }}
       onClick={(e) => { e.stopPropagation(); api.openMenu({ w: 70, items: PATTERN_NAMES.map((name, k) => ({ label: name, on: k === value, act: () => onChange(k) })) }, e) }}>
-      {active ? <><path d={d} fill={skin.secondary1} /><path d={d} fill={skin.secondary2} /></> : <path d={d} fill={skin.lighten} />}
-      <path d={d} fill="none" stroke={active ? skin.center : skin.lighten} strokeWidth={lw} strokeLinecap="round" strokeLinejoin="round" />
+      {active ? <><path d={d} fill={sk.secondary1} /><path d={d} fill={sk.secondary2} /></> : <path d={d} fill={sk.lighten} />}
+      <path d={d} fill="none" stroke={active ? sk.center : sk.lighten} strokeWidth={lw} strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }

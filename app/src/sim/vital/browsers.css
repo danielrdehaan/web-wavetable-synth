@@ -1,0 +1,152 @@
+/* Vital's About box, browsers, overlays and lists (About, SelectionList, PresetBrowser, SaveOverlay,
+   PopupBrowser, BankExporter), split from vital.css. Colours and roundings come from the skin (skin.tsx):
+   PresetBrowser and BankExporter sit in data-skin="Preset Browser", PopupBrowser in "Popup Browser", the
+   save/delete boxes and the about box in "Overlays" (all three are Overlays in Vital), so each var() below
+   resolves to its section's override. Where the 1.5.5 captures draw a colour no 1.0.6 key holds, it is
+   derived from the key Vital uses there (a color-mix or rgb(from …) step), so the default skin draws the
+   captured colour exactly and other skins move with that key. */
+
+/* The about box (About.tsx), as the 1.5.5 capture s0f draws it: AboutSection's Body a step darker, its
+   Body Text a step brighter, the fields and buttons Text Component Background. The blurred backdrop is
+   1.5.5's own (no skin colour). */
+.vt-about {
+  position: absolute; inset: 0; z-index: 80; backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px); background: rgba(0, 0, 0, 0.08);
+  --vt-about-text: rgb(from var(--sk-body-text) calc(r + 44) calc(g + 41) calc(b + 41));
+  --vt-about-button: rgb(from var(--sk-text-component-background) calc(r + 32) calc(g + 31) calc(b + 31));
+}
+.vt-aboutbox { position: absolute; background: rgb(from var(--sk-body) calc(r - 29) calc(g - 29) calc(b - 28)); border-radius: calc(var(--sk-body-rounding) * 5px); box-shadow: 0 0 0 0.5px color-mix(in srgb, var(--sk-lighten-screen) 45%, transparent); }
+.vt-aboutbox > *, .vt-aboutbox > div > * { position: absolute; }
+.vt-aboutmark circle { stroke: var(--sk-widget-primary-1); } .vt-aboutmark path { stroke: var(--vt-about-text); }
+.vt-aboutname { display: flex; align-items: center; justify-content: center; color: var(--vt-about-text); font-size: 25px; font-weight: 700; white-space: nowrap; }
+.vt-aboutver { display: flex; align-items: center; justify-content: center; color: rgb(from var(--sk-body-text) calc(r + 15) calc(g + 14) calc(b + 14)); font-size: 12px; font-weight: 300; }
+.vt-aboutlbl { display: flex; align-items: center; justify-content: flex-end; padding-right: 7px; color: var(--vt-about-text); font-size: 11.5px; font-weight: 300; box-sizing: border-box; }
+.vt-aboutbtn { background: var(--vt-about-button); border: 0; border-radius: calc(var(--sk-body-rounding) * 1.25px); color: rgb(from var(--sk-body-text) calc(r + 9) calc(g + 7) calc(b + 7)); font: inherit; font-size: 11.5px; font-weight: 300; cursor: pointer; padding: 0; }
+.vt-aboutbtn:hover { background: rgb(from var(--sk-text-component-background) calc(r + 46) calc(g + 45) calc(b + 45)); }
+.vt-aboutfield { display: flex; align-items: center; justify-content: center; background: var(--sk-text-component-background); border-radius: calc(var(--sk-body-rounding) * 1.25px); color: var(--vt-about-text); font-size: 11.5px; font-weight: 300; }
+.vt-aboutmidi { background: var(--sk-text-component-background); border-radius: calc(var(--sk-body-rounding) * 1.25px); overflow-y: auto; scrollbar-width: thin; }
+.vt-aboutin { position: relative !important; display: flex; align-items: center; gap: 8px; width: 100%; height: 21px; padding: 0 0 0 7px; background: none; border: 0; color: var(--vt-about-text); font: inherit; font-size: 11.5px; font-weight: 300; cursor: pointer; text-align: left; white-space: nowrap; }
+.vt-aboutin i { flex: none; width: 14px; height: 14px; border-radius: 50%; background: var(--vt-about-button); }
+.vt-aboutin.on i { background: var(--sk-icon-button-on); }
+.vt-logo { cursor: pointer; }
+
+/* SelectionList (SelectionList.tsx), in the Preset Browser or the Popup Browser: every colour is its
+   section's. Text and icons Text Component Text (the unselected icons at half alpha), the hovered row
+   Lighten Screen, the selected row from Widget Primary 1 (1.5.5 draws it a little off the colour: these
+   per-channel steps are the captured rows, s0e here and s4e for the popup below). */
+.vt-sl { position: absolute; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; scrollbar-color: var(--sk-lighten-screen) transparent; }
+.vt-sl-row { position: relative; cursor: pointer; }
+.vt-sl-row.sel { background: rgb(from var(--sk-widget-primary-1) calc(r * 0.9) calc(g * 0.875) calc(b * 0.93333)); }
+.vt-sl-row.hover::after { content: ''; position: absolute; inset: 0; background: var(--sk-lighten-screen); pointer-events: none; }
+.vt-sl-row.dim { opacity: 0.5; }
+.vt-sl-icon { position: absolute; top: 0; bottom: 0; display: flex; align-items: center; justify-content: center; }
+.vt-sl-name { position: absolute; top: 0; bottom: 0; right: 4px; display: flex; align-items: center; color: var(--sk-text-component-text); font-weight: 300; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vt-sl-star path { fill: none; stroke: color-mix(in srgb, var(--sk-text-component-text) 50%, transparent); }
+.vt-sl-star.on path { fill: var(--sk-icon-button-on); stroke: var(--sk-icon-button-on); }
+.vt-sl-folder path { fill: none; stroke: color-mix(in srgb, var(--sk-text-component-text) 30%, transparent); stroke-width: 1.4; }
+.vt-sl-folder.add path { stroke-dasharray: 3 2; }
+.vt-sl-x { position: absolute; right: 8px; top: 0; bottom: 0; display: flex; align-items: center; justify-content: center; }
+.vt-sl-x svg { width: 70%; height: 70%; } .vt-sl-x path { stroke: var(--sk-icon-selector-icon); stroke-width: 0.06; stroke-linecap: round; }
+.vt-sl-x:hover path { stroke: var(--sk-icon-button-off-hover); }
+
+/* The preset browser (PresetBrowser.tsx), as s0e shows it: the info and search tabs Body, the lists the
+   well between Widget Background and Body (--vt-pb-well), their header a shade under Body; texts Preset
+   Text / Text Component Text, the comments Body Text, the editors Text Editor Background, the style
+   buttons Vital's text toggle buttons (Text Component Background, Icon Button Off / Off Hover / On). */
+.vt-pb {
+  position: absolute; z-index: 20; outline: none;
+  --vt-pb-well: color-mix(in srgb, var(--sk-body) 19.6%, var(--sk-widget-background));
+  --vt-pb-head: color-mix(in srgb, var(--sk-body) 71%, var(--sk-widget-background));
+}
+.vt-pb > div { position: absolute; }
+.vt-pb-info, .vt-pb-search { background: var(--sk-body); border-radius: calc(var(--sk-body-rounding) * 1px); }
+.vt-pb-info > *, .vt-pb-search > * { position: absolute; }
+.vt-pb-name { display: flex; align-items: center; color: var(--sk-preset-text); font-size: 16px; font-weight: 300; white-space: nowrap; overflow: hidden; }
+.vt-pb-author { display: flex; align-items: center; color: var(--sk-preset-text); font-size: 11px; font-weight: 300; }
+.vt-pb-name.empty, .vt-pb-author.empty { color: color-mix(in srgb, var(--sk-preset-text) 17.615%, var(--sk-body)); }
+.vt-pb-rule { background: var(--sk-lighten-screen); }
+.vt-pb-comments { background: var(--sk-text-editor-background); border-radius: calc(var(--sk-body-rounding) * 1.5px); padding: 6px 8px; box-sizing: border-box; color: var(--sk-body-text); font-size: 9px; font-weight: 300; white-space: pre-wrap; overflow-y: auto; }
+.vt-pb-input { background: var(--sk-text-editor-background); border: 0; border-radius: calc(var(--sk-body-rounding) * 1.5px); padding: 0 6px; box-sizing: border-box; color: var(--sk-preset-text); caret-color: var(--sk-text-editor-caret); font: inherit; font-size: 11px; font-weight: 300; outline: none; }
+.vt-pb-input::placeholder { color: color-mix(in srgb, var(--sk-preset-text) 44.33%, var(--sk-text-editor-background)); }
+.vt-pb-input::selection, .vt-saveedit::selection, .vt-popsearch::selection, .vt-pb-rename::selection { background: var(--sk-text-editor-selection); }
+.vt-pb-style { background: var(--sk-text-component-background); border: 0; border-radius: calc(var(--sk-body-rounding) * 1.5px); color: var(--sk-icon-button-off); font: inherit; font-size: 7.5px; font-weight: 300; cursor: pointer; padding: 0; }
+.vt-pb-style:hover { color: var(--sk-icon-button-off-hover); } .vt-pb-style.on { color: var(--sk-icon-button-on); }
+.vt-pb-search .vt-sl { background: var(--vt-pb-well); border-radius: calc(var(--sk-body-rounding) * 1px); }
+.vt-pb-list { background: var(--vt-pb-well); border-radius: calc(var(--sk-body-rounding) * 1px); overflow: hidden; display: flex; flex-direction: column; }
+.vt-pb-head { position: relative; flex: none; background: var(--vt-pb-head); }
+.vt-pb-col { position: absolute; top: 0; bottom: 0; display: flex; align-items: center; padding-left: 10.6px; box-sizing: border-box; color: var(--sk-text-component-text); font-size: 11px; font-weight: 300; cursor: pointer; border-right: 0.5px solid var(--sk-lighten-screen); }
+.vt-pb-col.star { justify-content: center; padding: 0; }
+.vt-pb-col.date { justify-content: flex-end; padding-right: 10.6px; border-right: 0; border-left: 0.5px solid var(--sk-lighten-screen); }
+.vt-pb-col.author { border-right: 0; }
+.vt-pb-col.star .vt-sl-star path { fill: var(--sk-text-component-text); stroke: var(--sk-text-component-text); }
+.vt-pb-arrow { position: absolute; left: 4px; top: 7px; border-left: 3.5px solid transparent; border-right: 3.5px solid transparent; border-top: 4px solid var(--sk-text-component-text); }
+.vt-pb-col.date .vt-pb-arrow { left: 7px; }
+.vt-pb-arrow.up { border-top: 0; border-bottom: 4px solid var(--sk-text-component-text); }
+.vt-pb-rows { position: relative; flex: 1; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--sk-lighten-screen) transparent; }
+.vt-pb-row { position: relative; cursor: pointer; }
+/* PresetList's highlight (Widget Primary 1 darkened), as s0e draws it over the well. */
+.vt-pb-row.sel { background: color-mix(in srgb, rgb(from var(--sk-widget-primary-1) calc(r * 0.4929) calc(g * 0.4411) calc(b * 0.5733)) 50%, var(--vt-pb-well)); }
+.vt-pb-row.hover::after { content: ''; position: absolute; inset: 0; background: var(--sk-lighten-screen); pointer-events: none; }
+.vt-pb-cell { position: absolute; top: 0; bottom: 0; display: flex; align-items: center; color: var(--sk-text-component-text); font-size: 10.6px; font-weight: 300; white-space: nowrap; overflow: hidden; }
+.vt-pb-cell.star { justify-content: center; }
+.vt-pb-cell.date { justify-content: flex-end; }
+.vt-pb-rename { position: absolute; top: 1px; bottom: 1px; background: var(--sk-text-editor-background); border: 0; color: var(--sk-preset-text); caret-color: var(--sk-text-editor-caret); font: inherit; font-size: 10.6px; font-weight: 300; padding: 0 6px; outline: none; }
+
+/* Overlays (SaveSection, DeleteSection): Overlay Screen over everything, the box Body, its texts Body
+   Text, the editors Text Editor Background / Border (placeholder Body Text faded, as Vital's), the buttons UI Button and (the
+   confirming one) UI Action Button. */
+.vt-overlay {
+  position: absolute; inset: 0; z-index: 70; background: var(--sk-overlay-screen); display: flex; align-items: center; justify-content: center;
+  /* The editors' text. Vital's is Preset Text, which is white on the light skin's white editors, so here
+     it's Body Text a step brighter (white on the default skin, as before). */
+  --vt-ov-text: rgb(from var(--sk-body-text) calc(r + 44) calc(g + 41) calc(b + 41));
+}
+.vt-ovbox { position: relative; background: var(--sk-body); border-radius: calc(var(--sk-body-rounding) * 1px); }
+.vt-ovbox > * { position: absolute; }
+.vt-ovtext { left: 17px; right: 17px; height: 15px; display: flex; align-items: center; justify-content: center; color: var(--sk-body-text); font-size: 10.4px; font-weight: 300; }
+.vt-uibtn { border: 0; border-radius: calc(var(--sk-body-rounding) * 1px); background: var(--sk-ui-button); color: var(--sk-ui-button-text); font: inherit; font-size: 10.4px; cursor: pointer; padding: 0; }
+.vt-uibtn:hover { background: var(--sk-ui-button-hover); } .vt-uibtn:active { background: var(--sk-ui-button-press); }
+.vt-uibtn.primary { background: var(--sk-ui-action-button); } .vt-uibtn.primary:hover { background: var(--sk-ui-action-button-hover); } .vt-uibtn.primary:active { background: var(--sk-ui-action-button-press); }
+.vt-savelbl { display: flex; align-items: center; justify-content: flex-end; color: var(--sk-body-text); font-size: 10.4px; font-weight: 300; }
+.vt-saveedit { background: var(--sk-text-editor-background); border: 1px solid var(--sk-text-editor-border); border-radius: calc(var(--sk-body-rounding) * 1px); color: var(--vt-ov-text); caret-color: var(--sk-text-editor-caret); font: inherit; font-size: 15.4px; font-weight: 300; padding: 0 6px; box-sizing: border-box; outline: none; }
+.vt-saveedit.area { font-size: 11px; padding: 6px; resize: none; }
+.vt-saveedit::placeholder { color: color-mix(in srgb, var(--sk-body-text) 43.6%, var(--sk-text-editor-background)); }
+
+/* HeaderSection's temporary tab (Frame.tsx, in the Header section). */
+.vt-temptab { position: absolute; display: flex; align-items: center; gap: 0; color: var(--sk-body-text); font-size: 11px; font-weight: 300; letter-spacing: 0.2px; }
+.vt-tempx { width: 24px; height: 24px; margin: 0 4px 0 6px; cursor: pointer; }
+.vt-tempx path { stroke: var(--sk-icon-button-off); stroke-width: 0.09; stroke-linecap: round; }
+.vt-tempx:hover path { stroke: var(--sk-icon-button-off-hover); }
+
+/* PopupBrowser (PopupBrowser.tsx): Popup Browser skin (s4e, s1f, s1j). The box a step over Body with a
+   Border outline, the search box a step under it, the dividers Border faded into Body. */
+.vt-popclose { position: absolute; z-index: 60; }
+.vt-popbrowser { position: absolute; z-index: 61; background: rgb(from var(--sk-body) calc(r + 9) calc(g + 9) calc(b + 9)); border-radius: calc(var(--sk-body-rounding) * 1px); box-shadow: 0 0 0 0.5px var(--sk-border); }
+.vt-popbrowser > * { position: absolute; }
+.vt-popsearch { background: rgb(from var(--sk-body) calc(r - 9) calc(g - 9) calc(b - 10)); border: 0; border-radius: calc(var(--sk-body-rounding) * 1px); padding: 0 6px; box-sizing: border-box; color: var(--sk-preset-text); caret-color: var(--sk-text-editor-caret); font: inherit; font-size: 9px; font-weight: 300; outline: none; }
+.vt-popsearch::placeholder { color: color-mix(in srgb, var(--sk-preset-text) 44.33%, var(--sk-text-editor-background)); }
+.vt-popx { cursor: pointer; } .vt-popx path { stroke: var(--sk-icon-selector-icon); stroke-width: 0.09; stroke-linecap: round; } .vt-popx:hover path { stroke: var(--sk-icon-button-off); }
+.vt-popdiv { background: color-mix(in srgb, var(--sk-border) 36.6%, var(--sk-body)); }
+.vt-popbrowser .vt-sl-row.sel { background: rgb(from var(--sk-widget-primary-1) calc(r * 1.15972) calc(g * 1.25688) calc(b * 1.03004)); }
+
+/* Wavetable3d's import overlay while audio is dragged over the display (VoicePage, in the Oscillator
+   section): its Overlay Screen, the text Text Component Text (the other line half-faded). */
+.vt-wtdrop { position: absolute; inset: 0; background: var(--sk-overlay-screen); pointer-events: none; z-index: 4; border-radius: inherit; }
+.vt-wtdrop span { position: absolute; left: 0; right: 0; height: 50%; display: flex; align-items: center; justify-content: center; color: color-mix(in srgb, var(--sk-text-component-text) 50%, var(--sk-widget-background)); font-size: 8.9px; font-weight: 300; letter-spacing: 0.3px; }
+.vt-wtdrop span.on { color: var(--sk-text-component-text); }
+
+/* BankExporter's ContentList (BankExporter.tsx), in the Preset Browser section like PresetList: the
+   well and header as the preset list's, the + Lighten Screen, lit Widget Primary 1. Export Bank is
+   UI Action Button when it can export, else UI Button Press (BankExporter::checkExportReady). */
+.vt-cl { position: absolute; background: var(--vt-pb-well); border-radius: calc(var(--sk-body-rounding) * 1px); overflow: hidden; display: flex; flex-direction: column; }
+.vt-cl-head { position: relative; flex: none; background: var(--vt-pb-head); }
+.vt-cl-head span, .vt-cl-row span { position: absolute; top: 0; bottom: 0; display: flex; align-items: center; color: var(--sk-text-component-text); font-size: 10px; font-weight: 300; white-space: nowrap; overflow: hidden; }
+.vt-cl-head span { font-weight: 400; }
+.vt-cl-head .date, .vt-cl-row .date { justify-content: flex-end; }
+.vt-cl-rows { position: relative; flex: 1; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--sk-lighten-screen) transparent; }
+.vt-cl-row { position: relative; cursor: pointer; }
+.vt-cl-row:hover::after { content: ''; position: absolute; inset: 0; background: var(--sk-lighten-screen); pointer-events: none; }
+.vt-cl-add { position: absolute; top: 50%; transform: translateY(-50%); }
+.vt-cl-add circle, .vt-cl-add path { fill: none; stroke: var(--sk-lighten-screen); stroke-width: 0.08; }
+.vt-cl-row.on .vt-cl-add circle, .vt-cl-row.on .vt-cl-add path { stroke: var(--sk-widget-primary-1); }
+.vt-uibtn.off { background: var(--sk-ui-button-press); cursor: default; }
+.vt-bank > input, .vt-bank > button { position: absolute; }

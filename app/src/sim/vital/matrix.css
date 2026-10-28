@@ -1,66 +1,81 @@
-/* Vital's MATRIX page (MatrixPage.tsx). Colours sampled from the capture (s0c, s4m-h, s4m-i, s4a). */
+/* Vital's MATRIX page (MatrixPage.tsx), in the skin: the page is marked data-skin="Modulation Matrix", so
+   every var(--sk-*) here is that section's override where it has one. Shades were sampled from the 1.5.5
+   capture (s0c, s4m-h, s4m-i, s4a) and are written as the skin colours they come from: a row with no
+   connection is under Vital's off overlay (Background at about 70 %, as the capture measures it), the
+   off-white texts are their key at a little less than full strength. */
 
-.vmx { position: absolute; inset: 0; background: #262a2e; }
-.vmx-head { position: absolute; background: #3e4245; }
-.vmx-hcol { position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 8.5px; letter-spacing: 0.02em; color: #dfdfdf; cursor: pointer; border-right: 0.5px solid #616567; }
-.vmx-hcol:first-child { border-left: 0.5px solid #505356; }
-.vmx-hcol:last-child { border-right-color: #505356; }
-.vmx-arrow { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); border-left: 3px solid transparent; border-right: 3px solid transparent; border-top: 3.5px solid #dfdfdf; }
-.vmx-arrow.up { border-top: 0; border-bottom: 3.5px solid #dfdfdf; }
+.vmx { position: absolute; inset: 0; background: var(--sk-background); }
+.vmx-head { position: absolute; background: var(--sk-body-heading-background); }
+.vmx-hcol { position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 8.5px; letter-spacing: 0.02em; color: var(--sk-heading-text); cursor: pointer; border-right: 0.5px solid color-mix(in srgb, var(--sk-heading-text) 22%, var(--sk-body-heading-background)); }
+.vmx-hcol:first-child { border-left: 0.5px solid color-mix(in srgb, var(--sk-heading-text) 11%, var(--sk-body-heading-background)); }
+.vmx-hcol:last-child { border-right-color: color-mix(in srgb, var(--sk-heading-text) 11%, var(--sk-body-heading-background)); }
+.vmx-arrow { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); border-left: 3px solid transparent; border-right: 3px solid transparent; border-top: 3.5px solid var(--sk-heading-text); }
+.vmx-arrow.up { border-top: 0; border-bottom: 3.5px solid var(--sk-heading-text); }
 
-.vmx-rows { position: absolute; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; scrollbar-color: #4c4f52 transparent; }
-.vmx-row { position: absolute; background: #323539; color: #5d6064; }
-.vmx-row.on { background: #4c4f52; color: #f2f2f2; }
+.vmx-rows { position: absolute; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; scrollbar-color: var(--sk-lighten-screen) transparent; }
+/* A row (ModulationMatrixRow::paintBackground): Body; with no connection, under the off overlay. */
+.vmx-row { position: absolute; background: color-mix(in srgb, var(--sk-background) 70%, var(--sk-body)); color: color-mix(in srgb, var(--sk-background) 70%, var(--sk-heading-text)); }
+.vmx-row.on { background: var(--sk-body); color: color-mix(in srgb, var(--sk-text-component-text) 95%, transparent); }
 .vmx-row.bypass { opacity: 0.55; }
-.vmx-bar { position: absolute; border-radius: 2px; background: #262a2e; }
-.vmx-row.sel .vmx-bar { background: #4e466e; }
-.vmx-row.on.sel .vmx-bar { background: #aa88ff; }
-.vmx-num { position: absolute; display: flex; align-items: center; justify-content: center; font-size: 8.5px; color: #848789; }
-.vmx-row:not(.on) .vmx-num { color: #4c4f52; }
+/* The selected row's side bars (1.5.5), in Rotary Arc as the capture's purple. */
+.vmx-bar { position: absolute; border-radius: 2px; background: var(--sk-background); }
+.vmx-row.sel .vmx-bar { background: color-mix(in srgb, var(--sk-background) 70%, var(--sk-rotary-arc)); }
+.vmx-row.on.sel .vmx-bar { background: var(--sk-rotary-arc); }
+/* The bypass button (a text button, TextLookAndFeel): Icon Button Off. */
+.vmx-num { position: absolute; display: flex; align-items: center; justify-content: center; font-size: 8.5px; color: var(--sk-icon-button-off); }
+.vmx-row:not(.on) .vmx-num { color: var(--sk-body); }
 .vmx-num.btn { cursor: pointer; }
 /* ModulationMeterReadouts: the live amount under the destination box. */
 .vmx-meter { position: absolute; pointer-events: none; }
-.vmx-box { position: absolute; display: flex; align-items: center; justify-content: center; background: #282c30; border-radius: 6px; font-size: 10px; cursor: pointer; white-space: nowrap; overflow: hidden; }
-.vmx-row.on .vmx-box { background: #2c3033; }
-.vmx-box.part { color: #6a6d70; }
-.vmx-icon { position: absolute; display: flex; align-items: center; justify-content: center; color: #42464a; cursor: pointer; }
+/* Source and destination (paintBackground): Text Component Background at Widget Rounded Corner. */
+.vmx-box { position: absolute; display: flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--sk-background) 70%, var(--sk-text-component-background)); border-radius: calc(var(--sk-widget-rounded-corner) * 0.6667px); font-size: 10px; cursor: pointer; white-space: nowrap; overflow: hidden; }
+.vmx-row.on .vmx-box { background: var(--sk-text-component-background); }
+.vmx-box.part { color: color-mix(in srgb, var(--sk-text-component-text) 31%, var(--sk-background)); }
+.vmx-icon { position: absolute; display: flex; align-items: center; justify-content: center; color: color-mix(in srgb, var(--sk-background) 70%, var(--sk-icon-button-off)); cursor: pointer; }
 .vmx-icon svg { width: 15px; height: 7px; }
 .vmx-icon.ste svg { width: 11px; height: 10px; }
-.vmx-row.on .vmx-icon { color: #848789; }
-.vmx-row.on .vmx-icon.on { color: #aa88ff; }
-.vmx-morph { position: absolute; background: #282c30; border-radius: 6px; color: #3e4245; cursor: ns-resize; touch-action: none; }
-.vmx-row.on .vmx-morph { background: #2c3033; color: #aa88ff; }
+.vmx-row.on .vmx-icon { color: var(--sk-icon-button-off); }
+.vmx-row.on .vmx-icon.on { color: var(--sk-rotary-arc); }
+/* MORPH (CurveLookAndFeel): the curve in Rotary Arc, Widget Primary Disabled with no connection. */
+.vmx-morph { position: absolute; background: color-mix(in srgb, var(--sk-background) 70%, var(--sk-text-component-background)); border-radius: calc(var(--sk-widget-rounded-corner) * 0.6667px); color: var(--sk-widget-primary-disabled); cursor: ns-resize; touch-action: none; }
+.vmx-row.on .vmx-morph { background: var(--sk-text-component-background); color: var(--sk-rotary-arc); }
 .vmx-morph svg { position: absolute; inset: 0; width: 100%; height: 100%; }
-.vmx-amount { position: absolute; background: #262a2e; border-radius: 5px; touch-action: none; }
-.vmx-row.on .vmx-amount { cursor: ew-resize; }
-.vmx-amount .fill { position: absolute; top: 0; bottom: 0; background: #848789; }
-.vmx-amount .thumb { position: absolute; top: -0.5px; bottom: -0.5px; border-radius: 5px; background: #686b6e; }
-.vmx-row.on .vmx-amount .thumb { background: #ffffff; }
+/* AMOUNT (a LinearBar SynthSlider): Linear Slider Unselected track, Linear Slider fill and thumb. */
+.vmx-amount { position: absolute; background: color-mix(in srgb, var(--sk-background) 70%, var(--sk-linear-slider-unselected)); border-radius: 5px; touch-action: none; }
+.vmx-row.on .vmx-amount { background: var(--sk-linear-slider-unselected); cursor: ew-resize; }
+.vmx-amount .fill { position: absolute; top: 0; bottom: 0; background: var(--sk-linear-slider); }
+.vmx-amount .thumb { position: absolute; top: -0.5px; bottom: -0.5px; border-radius: 5px; background: color-mix(in srgb, var(--sk-background) 70%, var(--sk-linear-slider-thumb)); }
+.vmx-row.on .vmx-amount .thumb { background: var(--sk-linear-slider-thumb); }
 
-.vmx-remap { position: absolute; background: #4c4f52; border-radius: 3px; }
-.vmx-rtitle { position: absolute; display: flex; align-items: center; font-size: 11px; letter-spacing: 0.02em; color: #848789; white-space: nowrap; }
-.vmx-hbox { position: absolute; display: flex; align-items: center; background: #2c3033; border-radius: 8px; }
-.vmx-brush { width: 16px; height: 100%; display: flex; align-items: center; justify-content: center; color: #848789; cursor: pointer; margin-left: 4px; }
-.vmx-brush.on { color: #aa88ff; }
+/* MOD REMAP: a Body panel; its top bar's boxes in Popup Selector Background. */
+.vmx-remap { position: absolute; background: var(--sk-body); border-radius: calc(var(--sk-body-rounding) * 0.75px); }
+.vmx-rtitle { position: absolute; display: flex; align-items: center; font-size: 11px; letter-spacing: 0.02em; color: color-mix(in srgb, var(--sk-heading-text) 38%, transparent); white-space: nowrap; }
+.vmx-hbox { position: absolute; display: flex; align-items: center; background: var(--sk-popup-selector-background); border-radius: calc(var(--sk-widget-rounded-corner) * 0.8889px); }
+.vmx-brush { width: 16px; height: 100%; display: flex; align-items: center; justify-content: center; color: var(--sk-icon-button-off); cursor: pointer; margin-left: 4px; }
+.vmx-brush.on { color: var(--sk-rotary-arc); }
 .vmx-brush svg { width: 8px; height: 8px; }
-.vmx-pattern { flex: 1; height: 100%; display: flex; align-items: center; padding: 0 5px 0 3px; color: #848789; cursor: pointer; }
+.vmx-pattern { flex: 1; height: 100%; display: flex; align-items: center; padding: 0 5px 0 3px; color: var(--sk-icon-button-off); cursor: pointer; }
 .vmx-pattern svg { width: 100%; height: 100%; }
-.vmx-grid { justify-content: space-evenly; font-size: 8.5px; color: #e8e8e8; }
-.vmx-grid .dash { color: #848789; }
-.vmx-smooth { position: absolute; width: 18px; height: 16px; color: #6a6d70; cursor: pointer; transform: translateY(-50%); }
-.vmx-smooth.on { color: #aa88ff; }
+.vmx-grid { justify-content: space-evenly; font-size: 8.5px; color: color-mix(in srgb, var(--sk-text-component-text) 91%, transparent); }
+.vmx-grid .dash { color: color-mix(in srgb, var(--sk-body-text) 53%, transparent); }
+.vmx-smooth { position: absolute; width: 18px; height: 16px; color: color-mix(in srgb, var(--sk-icon-button-off) 54%, var(--sk-body)); cursor: pointer; transform: translateY(-50%); }
+.vmx-smooth.on { color: var(--sk-rotary-arc); }
 .vmx-smooth svg { width: 100%; height: 100%; }
-.vmx-shape { font-size: 10px; color: #f2f2f2; }
-.vmx-remap:not(.on) .vmx-shape { color: #f2f2f2; }
-.vmx-rdisp { position: absolute; background: #1d2125; border-radius: 3px; overflow: hidden; }
-.vmx-menu { position: absolute; z-index: 55; background: #262a2e; border: 0.5px solid #606265; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5); }
-.vmx-menu button { display: block; width: 100%; background: none; border: 0; text-align: left; font: inherit; color: #e6e8e8; cursor: pointer; white-space: nowrap; }
+.vmx-shape { font-size: 10px; color: color-mix(in srgb, var(--sk-preset-text) 95%, transparent); }
+.vmx-remap:not(.on) .vmx-shape { color: color-mix(in srgb, var(--sk-preset-text) 95%, transparent); }
+.vmx-rdisp { position: absolute; background: var(--sk-widget-background); border-radius: calc(var(--sk-body-rounding) * 0.75px); overflow: hidden; }
+
+/* The source and destination menus: Vital's popup selectors, marked data-skin="Popup Browser". */
+/* Their body is the capture's Background (inside the matrix, so the Modulation Matrix section's), not
+   the Popup Browser's Body that Vital 1.0.6 fills them with. */
+.vmx-menu { position: absolute; z-index: 55; background: var(--sk-background); border: 0.5px solid color-mix(in srgb, var(--sk-border) 62%, var(--sk-background)); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5); }
+.vmx-menu button { display: block; width: 100%; background: none; border: 0; text-align: left; font: inherit; color: color-mix(in srgb, var(--sk-text-component-text) 90%, transparent); cursor: pointer; white-space: nowrap; }
 .vmx-srcmenu { width: 124.5px; padding: 0; }
 .vmx-srcmenu button { height: 15.7px; padding: 0 9px; font-size: 8.6px; }
-.vmx-srcmenu button:hover { background: #aa88ff; color: #ffffff; }
+.vmx-srcmenu button:hover { background: var(--sk-rotary-arc); color: var(--sk-text-component-text); }
 .vmx-dstmenu { display: flex; height: 536px; }
 .vmx-dstmenu .col { width: 149.5px; padding: 3px 0; overflow-y: auto; scrollbar-width: none; }
-.vmx-dstmenu .col.right { border-left: 0.5px solid #43464a; }
+.vmx-dstmenu .col.right { border-left: 0.5px solid var(--sk-lighten-screen); }
 .vmx-dstmenu button { height: 21.3px; margin: 0 3px; width: calc(100% - 6px); padding: 0 5px; font-size: 11px; font-weight: 300; border-radius: 1px; }
-.vmx-dstmenu button.hi, .vmx-dstmenu button.cur, .vmx-dstmenu button:hover { background: #9977ee; color: #ffffff; }
-.vmx-dstmenu .sep { display: block; height: 1px; margin: 10px 8px 10.3px; background: #6a6d70; }
+.vmx-dstmenu button.hi, .vmx-dstmenu button.cur, .vmx-dstmenu button:hover { background: color-mix(in srgb, var(--sk-widget-primary-1) 50%, var(--sk-rotary-arc)); color: var(--sk-text-component-text); }
+.vmx-dstmenu .sep { display: block; height: 1px; margin: 10px 8px 10.3px; background: color-mix(in srgb, var(--sk-text-component-text) 31%, var(--sk-background)); }

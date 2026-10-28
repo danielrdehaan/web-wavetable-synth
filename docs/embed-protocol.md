@@ -20,6 +20,7 @@ Code: `app/src/embed/` (`EmbedApp.tsx`, `EmbedBridge.tsx`, `protocol.ts`), and t
 | `layout` | `column` (default) stacks the parts top to bottom; `row` puts them side by side. A part written `id@x:y` goes exactly there instead (frame units, the capture's 2000-wide frame; its top-left corner). |
 | `flow` | `1` draws the signal flow between the parts (below). |
 | `host` | The framing page's origin. The synth talks only to it, and only if the origin is allowed. |
+| `skin` | The skin, by name or file name: `make-things-dark`, `make-things-light`, or `default` (Vital's). Without it, the one last chosen in ADVANCED → THEME in that browser, else the default. |
 
 **Parts:** `osc1`–`osc3`, `sampler`, `filter1`, `filter2`, `env1`–`env3`, `lfo1`–`lfo8`,
 `random1`, `random2`, `midi`, `voice`, `glide`, `macros`, `keyboard` (all 128 keys), `keys` (four

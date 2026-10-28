@@ -5,7 +5,7 @@ import { Box } from './controls'
 import { useVital } from './ctx'
 import { powerCurve } from './draw'
 import { useDrag } from './hooks'
-import { LFO_SKIN, mix, withAlpha } from './LineEditor'
+import { mix, over, useLineSkin, withAlpha } from './LineEditor'
 import { PARAMS } from './params'
 
 // Vital's envelope editor (envelope_editor.cpp) on a canvas. The window shows a fixed span of time
@@ -36,12 +36,13 @@ type Hover = 'delay' | 'attack' | 'hold' | 'sustain' | 'release' | 'attackPower'
 export function EnvelopeEditor({ pre, at, running }: { pre: string; at: [number, number, number, number]; running: boolean }) {
   const api = useVital()
   const canvas = useRef<HTMLCanvasElement>(null)
+  const skin = useLineSkin(canvas) // the Envelope section's
   const st = useRef({
-    api, pre, running, window: 4, hover: null as Hover, mouseDown: false, last: { x: 0, y: 0 }, began: false,
+    skin, api, pre, running, window: 4, hover: null as Hover, mouseDown: false, last: { x: 0, y: 0 }, began: false,
     boosts: [new Float32Array(TOTAL_POINTS), new Float32Array(TOTAL_POINTS)], lastPhase: [0, 0], alpha: [0, 0],
     animatedBefore: false, dirty: true,
   })
-  st.current.api = api; st.current.pre = pre; st.current.running = running; st.current.dirty = true
+  st.current.skin = skin; st.current.api = api; st.current.pre = pre; st.current.running = running; st.current.dirty = true
 
   const size = () => {
     const c = canvas.current!
@@ -273,7 +274,7 @@ export function EnvelopeEditor({ pre, at, running }: { pre: string; at: [number,
       const g = c.getContext('2d')!
       g.setTransform(dpr, 0, 0, dpr, 0, 0)
       g.clearRect(0, 0, W, H)
-      const sk = LFO_SKIN // the Envelope skin section has the same colours
+      const sk = s.skin
 
       // The ruler (setGridPositions / setTimePositions).
       const powers = Math.log(s.window) / Math.log(RULER_DIVISION)
@@ -287,7 +288,8 @@ export function EnvelopeEditor({ pre, at, running }: { pre: string; at: [number,
       const fontH = TIME_DISPLAY_SIZE * H, fontBuffer = TIME_DISPLAY_BUFFER * H
       g.font = `${fontH}px 'Vital Lato', Lato, sans-serif`
       g.textBaseline = 'middle'
-      const bigText = mix(sk.background, '#ffffff', 0.133), littleText = mix(sk.background, '#ffffff', 0.133 * fade)
+      // The times: Lighten Screen over the background, the sub divisions' faded with their lines.
+      const bigText = over(sk.background, sk.lighten), littleText = over(sk.background, withAlpha(sk.lighten, fade))
       for (let i = 1; i * little < s.window && i < 24; i++) {
         g.fillStyle = i % RULER_DIVISION ? littleText : bigText
         g.fillText(formatTime(i * little), Math.round(padX((W * i * little) / s.window, W)) + fontBuffer, H - (fontH + fontBuffer) / 2)

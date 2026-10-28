@@ -11,11 +11,12 @@ import { justDragged, useSim } from './simContext'
 
 /** A part of the drawing that answers one or more of the questions. Clicking it answers the current
  *  one if it's among `tags`; once found, it stays outlined while that question is shown. */
-export function Region({ tags, className = '', style, children, label }: { tags: Tag[]; className?: string; style?: CSSProperties; children?: ReactNode; label?: string }) {
+/** `skin`: the Vital skin section whose overrides apply inside (data-skin, vital/skin.tsx). */
+export function Region({ tags, className = '', style, children, label, skin }: { tags: Tag[]; className?: string; style?: CSSProperties; children?: ReactNode; label?: string; skin?: string }) {
   const { asking, found, pick } = useSim()
   const lit = asking !== null && tags.includes(asking) && found.has(asking)
   return (
-    <div className={`ss-region${lit ? ' lit' : ''} ${className}`} style={style} data-tags={tags.join(' ')} aria-label={label}
+    <div className={`ss-region${lit ? ' lit' : ''} ${className}`} style={style} data-tags={tags.join(' ')} aria-label={label} data-skin={skin}
       onClick={(e) => { e.stopPropagation(); if (!justDragged()) pick(tags) }}>
       {children}
     </div>

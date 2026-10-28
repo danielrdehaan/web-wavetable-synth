@@ -21,7 +21,9 @@ import { MenuLayer, VitalProvider } from './vital/store'
 import { VoicePage } from './vital/VoicePage'
 import { layoutParts, makePartsFrame, PartsContext } from './vital/parts'
 import { FlowLayer } from './vital/FlowLayer'
+import { SkinProvider, SkinStyle } from './vital/skin'
 import './vital.css'
+import './vital/browsers.css'
 
 // Vital 1.5.5's interface, redrawn and working, played by Vital's own engine: children render inside
 // the store, and the app passes the engine link that way. Every position is measured from the deep capture (~/Documents/DAW-Reference/synths/vital/, CAPTURED-synths.md
@@ -36,9 +38,10 @@ import './vital.css'
 
 /** `parts` shows only those sections (see vital/parts.tsx), laid out down a column or across a row
  *  (or each at its own place, `id@x:y`), instead of the whole window; `flow` draws the signal flow
- *  between them (FlowLayer). The wavetable editor still opens over the whole window. */
-export function VitalSim({ children, parts, layout, flow }: { children?: ReactNode; parts?: string[]; layout?: 'column' | 'row'; flow?: boolean }) {
-  return <VitalProvider><VitalBody parts={parts} layout={layout} flow={flow} />{children}</VitalProvider>
+ *  between them (FlowLayer). The wavetable editor still opens over the whole window. `skin` picks the
+ *  skin by name (vital/skin.tsx) over the one chosen in THEME. */
+export function VitalSim({ children, parts, layout, flow, skin }: { children?: ReactNode; parts?: string[]; layout?: 'column' | 'row'; flow?: boolean; skin?: string | null }) {
+  return <VitalProvider><SkinProvider initial={skin}><VitalBody parts={parts} layout={layout} flow={flow} /></SkinProvider>{children}</VitalProvider>
 }
 
 /** The About box's WINDOW SIZE: 100 % is Vital's 1440-point window at one CSS pixel per point (1.44 ×
@@ -64,6 +67,7 @@ function VitalBody({ parts, layout, flow }: { parts?: string[]; layout?: 'column
   return (
     <Stage w={1000} h={606} maxScale={maxScale(api.ui.windowSize)} className={`vt${api.dragSrc ? ' vt-dragging' : ''}`}>
       <div className="vt-root" ref={api.rootRef} onContextMenu={(e) => e.preventDefault()}>
+        <SkinStyle />
         <Header />
         <Macros />
         {browsing && (exporting ? <BankExporter /> : <PresetBrowser />)}
@@ -107,6 +111,7 @@ function usePartsBody(parts: string[] | undefined, layout: 'column' | 'row' = 'c
     <PartsContext.Provider value={frame}>
       <Stage w={w / 2} h={h / 2} maxScale={2} className={`vt vt-partsview${api.dragSrc ? ' vt-dragging' : ''}`}>
         <div className="vt-root" ref={api.rootRef} onContextMenu={(e) => e.preventDefault()}>
+          <SkinStyle />
           {placed.map((p) => (
             <div key={p.id} className="vt-part" data-part={p.id} aria-label={p.spec.label} style={R(p.x, p.y, p.x + p.w, p.y + p.h)}>
               <div className="vt-partin" style={{ left: -p.spec.rect[0] / 2, top: -p.spec.rect[1] / 2 }}>{p.spec.render()}</div>

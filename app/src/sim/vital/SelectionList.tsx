@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 
 // Vital's SelectionList (popup_browser.cpp), the list in its browsers: one row per entry, its icon on
 // the left (a star for files, filled when a favourite; a folder outline; a dashed folder for Add
-// Folder), the name after it; the selected row in Widget Primary 1 darkened, the hovered one lightened,
+// Folder), the name after it; the selected row from Widget Primary 1, the hovered one Lighten Screen (each
+// the skin's colour for the section the list sits in, Preset Browser or Popup Browser),
 // an added folder's row showing an × to remove it while hovered. Clicking the star toggles the favourite,
 // clicking elsewhere selects; double-clicking the selected file confirms it. Rows are 42.5 units of the
 // capture's frame (s0e, s4e).

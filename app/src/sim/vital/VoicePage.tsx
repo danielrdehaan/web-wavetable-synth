@@ -18,11 +18,13 @@ import { loadLibrary, shiftedFile, type LibFile } from '../../engine/library'
 import { readAudioFile } from '../../engine/audioFile'
 import { loadTableFile as loadWavetableFile, tableChanged } from './wavetableIO'
 import { openWavetableEditor } from './WavetableEditor'
+import { sk } from './skin'
 
 // Vital's VOICE page: OSC 1–3, the sampler (SMP) and FILTER 1 | FILTER 2, each control wired to its
 // parameter. Positions are the capture's (2000 × 1211) relative to each section, halved by R().
 
-const PURPLE = '#aa88ff', ORANGE = '#ffb74d'
+/** Lighten Screen at twice its alpha (a hovered TransposeQuantizeButton's keys). */
+const LIGHTEN_2 = 'rgb(from var(--sk-lighten-screen) r g b / calc(alpha * 2))'
 /** vital::constants::kNumSourceDestinations: the routes a source can take (the rest of the range is unused). */
 const SOURCE_DESTINATIONS = 5
 /** The closed selectors' short names (oscillator_section.cpp kSpectralMorphTypes / kDistortionTypes). */
@@ -73,7 +75,7 @@ function QuantizeButton({ pre, at }: { pre: string; at: [number, number, number,
       onPointerEnter={() => setHover(true)} onPointerLeave={() => setHover(false)} title="Transpose Snap">
       <svg viewBox={`0 0 ${w} ${h}`} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
         {keyBounds(0, w, h).map(([x, y, d], n) => (
-          <circle key={n} cx={x + d / 2} cy={y + d / 2} r={d / 2} fill={hover ? 'rgba(255,255,255,0.266)' : q & (1 << n) ? '#aa88ff' : 'rgba(255,255,255,0.133)'} />
+          <circle key={n} cx={x + d / 2} cy={y + d / 2} r={d / 2} style={{ fill: hover ? LIGHTEN_2 : q & (1 << n) ? sk('Widget Primary 1') : sk('Lighten Screen') }} />
         ))}
       </svg>
       {open && <SnapCallout p={p} anchor={ref.current} w={w} onClose={() => setOpen(false)} />}
@@ -118,14 +120,14 @@ function SnapCallout({ p, anchor, w, onClose }: { p: string; anchor: HTMLElement
     if ((mode.current === 'on') !== on) api.set(p, cur ^ (1 << n))
   }
   return createPortal(
-    <div ref={box} className="vt-snapcallout" style={{ left, top, width: cw, height: ch }}
+    <div ref={box} className="vt-snapcallout" data-skin="Oscillator" style={{ left, top, width: cw, height: ch }}
       onPointerDown={(e) => { e.stopPropagation(); mode.current = null; const n = keyAt(e); if (n >= 0) { api.checkpoint(); paint(n); try { box.current!.setPointerCapture(e.pointerId) } catch { /* synthetic pointer */ } } }}
       onPointerMove={(e) => { const n = keyAt(e); setHover(n); if (e.buttons & 1 && mode.current) paint(n) }}
       onPointerUp={() => { mode.current = null }} onPointerLeave={() => setHover(-1)}>
       <span className="vt-snaptitle" style={{ height: title, fontSize: title * 0.7 }}>TRANSPOSE SNAP</span>
       <svg viewBox={`0 0 ${cw} ${ch}`} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
-        {keys.map(([x, y, d], n) => <circle key={n} cx={x + d / 2} cy={y + d / 2} r={d / 2} fill={q & (1 << n) ? '#aa88ff' : 'rgba(255,255,255,0.133)'} />)}
-        {hover >= 0 && <circle cx={keys[hover][0] + keys[hover][2] / 2} cy={keys[hover][1] + keys[hover][2] / 2} r={keys[hover][2] / 2} fill="rgba(255,255,255,0.133)" />}
+        {keys.map(([x, y, d], n) => <circle key={n} cx={x + d / 2} cy={y + d / 2} r={d / 2} style={{ fill: q & (1 << n) ? sk('Widget Primary 1') : sk('Lighten Screen') }} />)}
+        {hover >= 0 && <circle cx={keys[hover][0] + keys[hover][2] / 2} cy={keys[hover][1] + keys[hover][2] / 2} r={keys[hover][2] / 2} style={{ fill: sk('Lighten Screen') }} />}
       </svg>
       <span className={`vt-snapglobal${global ? ' on' : ''}`} style={{ top: ch - globalH, height: globalH }}
         onPointerDown={(e) => { e.stopPropagation(); api.checkpoint(); api.set(p, Math.round(api.get(p) ?? 0) ^ (1 << 12)) }}>Global Snap</span>
@@ -170,7 +172,7 @@ function UnisonViewer({ pre, at, on }: { pre: string; at: [number, number, numbe
   return (
     <Box at={at} className="vt-unison" {...sl.handlers} onContextMenu={menu}>
       <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
-        {xs.map((x, k) => <rect key={k} x={((x + 1) / 2) * w - 0.35} y={h * 0.15} width={0.7} height={h * 0.7} fill={on ? 'rgba(170,136,255,0.5)' : 'rgba(76,79,82,0.5)'} />)}
+        {xs.map((x, k) => <rect key={k} x={((x + 1) / 2) * w - 0.35} y={h * 0.15} width={0.7} height={h * 0.7} style={{ fill: sk(on ? 'Widget Primary 1' : 'Widget Primary Disabled') }} opacity={0.5} />)}
       </svg>
       {sl.popup && <Bubble text={`Detune Power: ${shown(`${pre}_detune_power`, api.v[`${pre}_detune_power`] ?? 1.5)}`} />}
       {sl.editing && <TextEntry p={`${pre}_detune_power`} onDone={() => sl.setEditing(false)} />}
@@ -228,7 +230,8 @@ function WaveScreen({ i, on, at }: { i: number; on: boolean; at: [number, number
   const s = useMemo(() => oscFrame(table, frame, warp, warpAmt, morph, morphAmt), [table, frame, warp, warpAmt, morph, morphAmt])
   const W = 189, H = 72, mid = 21 + H / 2
   const path = (a: number[], dx = 0, dy = 0, sx = 1, sy = 1) => a.map((y, k) => `${k ? 'L' : 'M'} ${(dx + k / (a.length - 1) * W * sx).toFixed(1)} ${(dy + mid - y * H * 0.42 * sy).toFixed(1)}`).join(' ')
-  const line = on ? PURPLE : '#4c4f52'
+  // The stand-in drawing before the engine runs, in the oscillator's Widget Primary 1 (Disabled when off).
+  const line = sk(on ? 'Widget Primary 1' : 'Widget Primary Disabled')
   const setTable = (t: string) => { api.checkpoint(); api.setUi({ [`${pre}_table`]: t, [`${pre}_tableFile`]: undefined }) }
   const { ctx } = useEngine()
   // OscillatorSection::loadFile: a .vitaltable loads as it is; audio is spliced into frames, or vocoded /
@@ -252,15 +255,15 @@ function WaveScreen({ i, on, at }: { i: number; on: boolean; at: [number, number
   let body
   if (view === 2) {
     const h = spectrum(s, 40)
-    body = h.map((m, k) => { const bh = Math.min(1, Math.log10(1 + m * 9)) * 64; return <rect key={k} x={4 + k * 4.6} y={88 - bh} width={2.6} height={bh} fill={line} opacity={on ? 0.9 : 0.6} /> })
+    body = h.map((m, k) => { const bh = Math.min(1, Math.log10(1 + m * 9)) * 64; return <rect key={k} x={4 + k * 4.6} y={88 - bh} width={2.6} height={bh} style={{ fill: line }} opacity={on ? 0.9 : 0.6} /> })
   } else if (view === 0) {
     const frames = Array.from({ length: 9 }, (_, k) => oscFrame(table, k / 8, warp, warpAmt, morph, morphAmt, 64))
     body = <>
-      {frames.map((f, k) => <path key={k} d={path(f, 14 + k * 4, 14 - k * 3.2, 0.72, 0.6)} fill="none" stroke={line} strokeWidth={0.6} opacity={0.35} />)}
-      <path d={path(s, 14 + frame * 32, 14 - frame * 25.6, 0.72, 0.6)} fill="none" stroke={line} strokeWidth={1.2} />
+      {frames.map((f, k) => <path key={k} d={path(f, 14 + k * 4, 14 - k * 3.2, 0.72, 0.6)} fill="none" style={{ stroke: line }} strokeWidth={0.6} opacity={0.35} />)}
+      <path d={path(s, 14 + frame * 32, 14 - frame * 25.6, 0.72, 0.6)} fill="none" style={{ stroke: line }} strokeWidth={1.2} />
     </>
   } else {
-    body = <path d={`${path(s)} L ${W} ${mid} L 0 ${mid} Z`} fill={on ? 'rgba(170,136,255,.55)' : 'none'} stroke={line} strokeWidth={1.1} strokeLinejoin="round" />
+    body = <path d={`${path(s)} L ${W} ${mid} L 0 ${mid} Z`} style={{ fill: on ? 'color-mix(in srgb, var(--sk-widget-primary-1) 55%, transparent)' : 'none', stroke: line }} strokeWidth={1.1} strokeLinejoin="round" />
   }
   const menu = (e: React.MouseEvent) => {
     e.preventDefault(); e.stopPropagation()
@@ -309,7 +312,7 @@ export function Osc({ i }: { i: number }) {
   const morph = Math.round(api.v[`${pre}_spectral_morph_type`] ?? 0), warp = Math.round(api.v[`${pre}_distortion_type`] ?? 0)
   const phaseBar = warp >= 1 && warp <= 6 // Sync, Formant, Quantize, Bend, Squeeze, Pulse
   return (
-    <Region tags={['source']} className={`vt-osc${on ? ' on' : ''}`} style={R(127, y, 1131, y + 190)} label={name}>
+    <Region tags={['source']} className={`vt-osc${on ? ' on' : ''}`} style={R(127, y, 1131, y + 190)} label={name} skin="Oscillator">
       <div className="vt-b vt-strip" style={R(0, 0, 45, 190)} />
       <Power p={`${pre}_on`} x={22} y={21} />
       <span className="vt-vlabel" style={{ left: 22 / 2, top: 110 / 2 }}>{name}</span>
@@ -321,7 +324,7 @@ export function Osc({ i }: { i: number }) {
           room (OscillatorSection::setDistortionPhaseVisible, usesDistortionPhase). */}
       <WaveScreen i={i} on={on} at={[235, 7, 613, phaseBar ? 171 : 185]} />
       <VSlider p={`${pre}_wave_frame`} at={[621, 7, 631, phaseBar ? 171 : 185]} thumb={30} dim={!on} prefix="Frame: " />
-      {phaseBar && <HSlider p={`${pre}_distortion_phase`} at={[231, 175, 617, 185]} thumb={22} fillFrom={0.5} dim={!on || !warp} color="#ffffff" popup="below" prefix="Phase: " />}
+      {phaseBar && <HSlider p={`${pre}_distortion_phase`} at={[231, 175, 617, 185]} thumb={22} fillFrom={0.5} dim={!on || !warp} popup="below" prefix="Phase: " />}
       <Box at={[639, 7, 813, 57]} className="vt-chip">
         <TextValue p={`${pre}_unison_voices`} className="l" fmt={(v) => `${Math.round(v)}v`} span={150} meterLeft />
         <span className="t">UNISON</span>
@@ -424,7 +427,7 @@ export function Sampler() {
   }
   const isFile = (e: React.DragEvent) => [...e.dataTransfer.items].some((it) => it.kind === 'file')
   return (
-    <Region tags={['source']} className={`vt-osc vt-smp${on ? ' on' : ''}`} style={R(127, 708, 1131, 803)} label="Sampler">
+    <Region tags={['source']} className={`vt-osc vt-smp${on ? ' on' : ''}`} style={R(127, 708, 1131, 803)} label="Sampler" skin="Sample">
       <div className="vt-b vt-strip" style={R(0, 0, 45, 95)} />
       <Power p="sample_on" x={22} y={21} />
       <span className="vt-vlabel" style={{ left: 22 / 2, top: 62 / 2 }}>SMP</span>
@@ -458,7 +461,7 @@ export function Sampler() {
 /** The filter's display: the response curve (the engine's, once it runs); drag sideways for cutoff, up
  *  and down for resonance (formant X / Y on the formant model), full range per width / height; the wheel
  *  does the same; the cutoff and resonance popups show while pressed (FilterResponse::mouseDown). */
-function FilterScreen({ pre, on, at, color }: { pre: string; on: boolean; at: [number, number, number, number]; color: string }) {
+function FilterScreen({ pre, on, at }: { pre: string; on: boolean; at: [number, number, number, number] }) {
   const api = useVital()
   const { engine } = useEngine()
   const [pressed, setPressed] = useState(false)
@@ -489,7 +492,8 @@ function FilterScreen({ pre, on, at, color }: { pre: string; on: boolean; at: [n
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
         {engine
           ? <FilterCurve pre={pre} w={W} h={H} on={on} />
-          : <path d={`${d} L ${W} ${H + 2} L 0 ${H + 2} Z`} fill={on ? (color === ORANGE ? '#956746' : 'rgba(170,136,255,.5)') : 'none'} stroke={on ? color : '#4c4f52'} strokeWidth={0.8} />}
+          : <path d={`${d} L ${W} ${H + 2} L 0 ${H + 2} Z`} strokeWidth={0.8}
+            style={{ fill: on ? 'color-mix(in srgb, var(--sk-widget-primary-1) 52%, var(--sk-widget-background))' : 'none', stroke: sk(on ? 'Widget Primary 1' : 'Widget Primary Disabled') }} />}
       </svg>
       {pressed && <Bubble at="below" text={xLabel + shown(`${pre}_${xId}`, v(xId))} />}
       {pressed && <Bubble at="right" text={yLabel + shown(`${pre}_${yId}`, v(yId))} />}
@@ -505,29 +509,29 @@ export function Filter({ k }: { k: number }) {
   const mode = filterMode(Math.round(api.v[`${pre}_model`] ?? 0), Math.round(api.v[`${pre}_style`] ?? 0))
   const inputs: [string, string][] = [['osc1_input', 'OSC1'], ['osc2_input', 'OSC2'], ['osc3_input', 'OSC3'], ['sample_input', 'SMP']]
   return (
-    <Region tags={['filter']} className={`vt-filter${on ? ' on' : ''}`} style={R(x0, 813, x0 + 497, 1140)} label={`FILTER ${k + 1}`}>
-      <Power p={`${pre}_on`} x={24} y={29} color={ORANGE} className="f" />
+    <Region tags={['filter']} className={`vt-filter${on ? ' on' : ''}`} style={R(x0, 813, x0 + 497, 1140)} label={`FILTER ${k + 1}`} skin="Filter">
+      <Power p={`${pre}_on`} x={24} y={29} className="f" />
       <span className="vt-fname" style={{ left: 75 / 2, top: 17 / 2 }}>FILTER {k + 1}</span>
       <FilterModelSelector pre={pre} at={[203, 15, 485, 44]} className="vt-sel big" menuAt="right" />
       <FilterIcon icon={mode.left} className="vt-fic" style={{ left: 9, top: 23, width: 14, height: 10 }} />
       <FilterIcon icon={mode.right} className="vt-fic" style={{ left: 229, top: 23, width: 14, height: 10 }} />
       {mode.showBlend
-        ? <HSlider p={`${pre}_blend`} at={[41, 53, 453, 63]} thumb={22} fillFrom={0.5} dim={!on} color="#ffffff" popup="above" prefix="Blend: " snap={1} ringsAt="below" />
-        : <HSlider p={`${pre}_formant_transpose`} at={[41, 53, 453, 63]} thumb={22} fillFrom={0.5} dim={!on} color="#ffffff" popup="above" ringsAt="below" />}
-      <FilterScreen pre={pre} on={on} at={[8, 69, 471, 210]} color={ORANGE} />
+        ? <HSlider p={`${pre}_blend`} at={[41, 53, 453, 63]} thumb={22} fillFrom={0.5} dim={!on} popup="above" prefix="Blend: " snap={1} ringsAt="below" />
+        : <HSlider p={`${pre}_formant_transpose`} at={[41, 53, 453, 63]} thumb={22} fillFrom={0.5} dim={!on} popup="above" ringsAt="below" />}
+      <FilterScreen pre={pre} on={on} at={[8, 69, 471, 210]} />
       {mode.formant
         ? <VSlider p={`${pre}_formant_y`} at={[479, 67, 489, 207]} thumb={36} dim={!on} prefix="Formant Y: " />
         : <VSlider p={`${pre}_resonance`} at={[479, 67, 489, 207]} thumb={36} dim={!on} prefix="Resonance: " />}
       {mode.formant
-        ? <HSlider p={`${pre}_formant_x`} at={[8, 215, 471, 227]} thumb={42} fillFrom={0} dim={!on} color="#ffffff" rings={false} prefix="Formant X: " />
-        : <HSlider p={`${pre}_cutoff`} at={[8, 215, 471, 227]} thumb={42} fillFrom={0} dim={!on} color="#ffffff" rings={false} prefix="Cutoff: " />}
+        ? <HSlider p={`${pre}_formant_x`} at={[8, 215, 471, 227]} thumb={42} fillFrom={0} dim={!on} rings={false} prefix="Formant X: " />
+        : <HSlider p={`${pre}_cutoff`} at={[8, 215, 471, 227]} thumb={42} fillFrom={0} dim={!on} rings={false} prefix="Cutoff: " />}
       <Region tags={['flow']} className="vt-fsrc" style={R(8, 235, 266, 320)} label={`Filter ${k + 1} inputs`}>
         {inputs.map(([p, n], j) => <Toggle key={p} p={`${pre}_${p}`} className="vt-fin" at={[(j % 2) * 94, Math.floor(j / 2) * 30, (j % 2) * 94 + 87, Math.floor(j / 2) * 30 + 24]}>{n}</Toggle>)}
         <Toggle p={`${pre}_filter_input`} className="vt-fin" at={[46, 60, 134, 84]}>{k === 0 ? 'FIL2' : 'FIL1'}</Toggle>
       </Region>
-      <Knob key={mode.firstKnob} p={`${pre}_${mode.firstKnob}`} x={244} y={262} d={58} color={ORANGE} dim={!on} label={mode.label1} labelAt={[204, 294, 286, 318]} />
-      <Knob p={`${pre}_mix`} x={343} y={262} d={58} color={ORANGE} dim={!on} label="MIX" labelAt={[303, 294, 385, 318]} />
-      <Knob key={mode.secondKnob} p={`${pre}_${mode.secondKnob}`} x={442} y={262} d={58} color={ORANGE} dim={!on} label={mode.label2} labelAt={[402, 294, 484, 318]} snap={mode.formant ? undefined : 0} />
+      <Knob key={mode.firstKnob} p={`${pre}_${mode.firstKnob}`} x={244} y={262} d={58} dim={!on} label={mode.label1} labelAt={[204, 294, 286, 318]} />
+      <Knob p={`${pre}_mix`} x={343} y={262} d={58} dim={!on} label="MIX" labelAt={[303, 294, 385, 318]} />
+      <Knob key={mode.secondKnob} p={`${pre}_${mode.secondKnob}`} x={442} y={262} d={58} dim={!on} label={mode.label2} labelAt={[402, 294, 484, 318]} snap={mode.formant ? undefined : 0} />
     </Region>
   )
 }

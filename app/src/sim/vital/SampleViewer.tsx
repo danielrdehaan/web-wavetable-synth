@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { onStatusPacket, statusLanes } from '../../engine/status'
 import { anyBoost, boostLane, boostRange, decayBoosts, fillGradient } from './lineBoost'
+import { useLineSkin } from './LineEditor'
 
 // The sampler's waveform (sample_viewer.cpp): the sample's left channel in 256 bins, each bin's largest
 // value drawn up from the centre line and mirrored below it, each half filled to the centre. It's drawn
@@ -14,19 +15,15 @@ const PHASE_ENCODING = 0.9 // vital::utils::kPhaseEncodingMultiplier
 const FRAMES_PER_PACKET = 2 // Vital redraws at 60 fps; the status arrives ~31 times a second
 const PT = 1000 / 1440 // stage px per Vital point
 
-/** The Sample skin section: Widget Primary / Secondary 1 and 2 (the defaults), Line Boost 1, Fill Boost
- *  2.5, Fill Fade 0.3, a 2 pt line. */
-const SKIN = {
-  primary: ['#aa88ff', '#aa88ff'], secondary: ['rgba(159,136,255,0.4)', 'rgba(159,136,255,0.4)'],
-  primaryDisabled: '#4c4f52', secondaryDisabled: 'rgba(102,102,102,0.133)',
-  lineBoost: 1, fillBoost: 2.5, fillFade: 0.3, lineWidth: 2,
-}
-
 export function SampleViewer({ peaks, on, style }: { peaks: Float32Array | null; on: boolean; style: React.CSSProperties }) {
   const canvas = useRef<HTMLCanvasElement>(null)
+  // The Sample section's skin: Widget Primary / Secondary 1 and 2 (and Disabled), Line Width, Line Boost,
+  // Fill Boost (2.5 in the default skin's Sample override), Fill Fade.
+  const skin = useLineSkin(canvas)
   const st = useRef({
-    peaks, on, lanes: [boostLane(RESOLUTION), boostLane(RESOLUTION)], lastPhase: [0, 0], lastVoice: [NaN, NaN], dirty: true,
+    skin, peaks, on, lanes: [boostLane(RESOLUTION), boostLane(RESOLUTION)], lastPhase: [0, 0], lastVoice: [NaN, NaN], dirty: true,
   })
+  st.current.skin = skin
   st.current.peaks = peaks
   st.current.on = on
   st.current.dirty = true
@@ -72,6 +69,7 @@ export function SampleViewer({ peaks, on, style }: { peaks: Float32Array | null;
       if (!p) return
       const center = H / 2
       const xs = Array.from({ length: RESOLUTION }, (_, i) => (W * i) / (RESOLUTION - 1))
+      const SKIN = s.skin
       const lineW = SKIN.lineWidth * PT
       // One half (top: sign −1, bottom: +1) of one layer, its boosts from `lane`.
       const half = (sign: number, line: string, fill: string, b: Float32Array) => {
@@ -91,8 +89,8 @@ export function SampleViewer({ peaks, on, style }: { peaks: Float32Array | null;
       // The right channel's layer (drawLines(false)), then the left's with its boosts once it has any.
       const right = s.lanes[1].boosts, left = anyBoost(s.lanes[0]) ? s.lanes[0].boosts : right
       for (const [layer, b] of [[1, right], [0, left]] as const) {
-        const line = s.on ? SKIN.primary[layer] : SKIN.primaryDisabled
-        const fill = s.on ? SKIN.secondary[layer] : SKIN.secondaryDisabled
+        const line = s.on ? (layer ? SKIN.primary2 : SKIN.primary1) : SKIN.primaryDisabled
+        const fill = s.on ? (layer ? SKIN.secondary2 : SKIN.secondary1) : SKIN.secondaryDisabled
         half(-1, line, fill, b)
         half(1, line, fill, b)
       }

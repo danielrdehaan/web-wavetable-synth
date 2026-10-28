@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { useVital } from '../sim/vital/ctx'
+import { sk } from '../sim/vital/skin'
 import { useEngine } from './EngineContext'
 import { useLanesOr, useStatusLanes } from './status'
 
@@ -9,13 +10,13 @@ import { useLanesOr, useStatusLanes } from './status'
 //   sideways by the MIDI note of the engine's live flanger_delay_frequency (× width / 128 − 1.5 × width).
 // - Phaser (phaser_section.cpp PhaserResponse): the phaser shader at the engine's live phaser_cutoff,
 //   with feedback, blend and mix, over 256 points.
-// Each draws the right channel (Widget Primary/Secondary 2) under the left (… 1), filled to the bottom.
+// Each draws the right channel (Widget Primary/Secondary 2) under the left (… 1), filled to the bottom,
+// from the skin section it's drawn in (the Flanger or Phaser panel): lines Widget Line Width wide, fills
+// faded by Widget Fill Fade; off, the left in Widget Primary Disabled over Widget Secondary Disabled at 60 %.
 
 const SCALE = 1000 / 1440
-const SKIN = {
-  flanger: { l: '#ffd740', r: '#ffc900', lf: 'rgba(255,215,64,0.4)', rf: 'rgba(255,201,0,0.4)' },
-  phaser: { l: '#40c4ff', r: '#00b0ff', lf: 'rgba(64,196,255,0.4)', rf: 'rgba(0,176,255,0.4)' },
-}
+const FADE = 'calc(1 - var(--sk-widget-fill-fade))'
+const OFF_FILL = 'rgb(from var(--sk-widget-secondary-disabled) r g b / calc(alpha * 0.6))'
 
 const midiOf = (hz: number) => 12 * Math.log2(Math.max(hz, 1e-6) / 8.1757989156)
 
@@ -62,7 +63,6 @@ export function ModFxCurve({ kind, w, h, on, px = 1 }: { kind: 'flanger' | 'phas
   }, [engine, kind, key, lanes, center]) // eslint-disable-line react-hooks/exhaustive-deps
   const gradient = useId()
   if (!curves) return null
-  const skin = SKIN[kind]
   const draw = (data: Float32Array, lane: number) => {
     const points = kind === 'flanger' ? 512 : 256
     let d = ''
@@ -81,15 +81,17 @@ export function ModFxCurve({ kind, w, h, on, px = 1 }: { kind: 'flanger' | 'phas
   }
   const right = draw(curves[0], 1), left = draw(curves[1], 0)
   const closed = (d: string) => `${d}L${kind === 'flanger' ? 2 * w : w} ${h + 2}L${kind === 'flanger' ? -w : 0} ${h + 2}Z`
+  const width = `calc(var(--sk-widget-line-width) * ${+(SCALE * px).toFixed(5)})`
+  const rf = on ? sk('Widget Secondary 2') : OFF_FILL, lf = on ? sk('Widget Secondary 1') : OFF_FILL
   return (
     <>
       <defs>
-        <linearGradient id={`${gradient}r`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={on ? skin.rf : 'rgba(76,76,76,0.6)'} /><stop offset="1" stopColor={on ? skin.rf : 'rgba(76,76,76,0.6)'} stopOpacity={0.7} /></linearGradient>
-        <linearGradient id={`${gradient}l`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={on ? skin.lf : 'rgba(76,76,76,0.6)'} /><stop offset="1" stopColor={on ? skin.lf : 'rgba(76,76,76,0.6)'} stopOpacity={0.7} /></linearGradient>
+        <linearGradient id={`${gradient}r`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" style={{ stopColor: rf }} /><stop offset="1" style={{ stopColor: rf, stopOpacity: FADE }} /></linearGradient>
+        <linearGradient id={`${gradient}l`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" style={{ stopColor: lf }} /><stop offset="1" style={{ stopColor: lf, stopOpacity: FADE }} /></linearGradient>
       </defs>
-      {on && <><path d={closed(right)} fill={`url(#${gradient}r)`} /><path d={right} fill="none" stroke={skin.r} strokeWidth={2 * SCALE * px} /></>}
+      {on && <><path d={closed(right)} fill={`url(#${gradient}r)`} /><path d={right} fill="none" style={{ stroke: sk('Widget Primary 2'), strokeWidth: width }} /></>}
       <path d={closed(left)} fill={`url(#${gradient}l)`} />
-      <path d={left} fill="none" stroke={on ? skin.l : '#666666'} strokeWidth={2 * SCALE * px} />
+      <path d={left} fill="none" style={{ stroke: sk(on ? 'Widget Primary 1' : 'Widget Primary Disabled'), strokeWidth: width }} />
     </>
   )
 }

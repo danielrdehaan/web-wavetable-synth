@@ -1,141 +1,159 @@
-/* Vital 1.5.5 (VitalSim.tsx, vital/*). Colours from Vital's default skin (default.vitalskin), checked
-   against the capture: background #262a2e, window #212428, bodies #4c4f52, label pills #3e4245, boxes
-   #2c3033, screens #1d2125, slider tracks #848789 over #262a2e, purple #aa88ff, envelope/LFO teal
-   #64ffda over #225f60, filter orange #ffb74d over #956746. A section that's off is the same drawing
-   under Vital's "Overlay Screen" (#1d2125 at about 70 %). Vital's face is Lato, bundled (SIL OFL,
-   public/fonts/lato/) in the Regular and Light weights Vital ships. Effects, matrix and advanced pages
-   style themselves (vital/effects.css, matrix.css, advanced.css). */
+/* Vital 1.5.5 (VitalSim.tsx, vital/*), drawn from the skin (vital/skin.tsx): every colour is a skin
+   colour, `var(--sk-<key>)`, set on the window for the globals and on each element marked
+   data-skin="<section>" for that section's overrides, so a rule written with the generic key takes the
+   section's value (Widget Primary 1 is purple in an oscillator, orange in a filter). Where the capture's
+   colour is a skin colour seen through thin text or over a body, the rule mixes the key into the
+   colour under it, so the default skin draws what was captured. Radii follow the skin's roundings, scaled so
+   the default ones give the captured sizes. A section that's off is drawn under its Background
+   (SynthSection's off overlay is Background at 80 %; the capture's is darker and more see-through, 77 % toward
+   black at 70 %, which this keeps). The fake title bar and the parts views' flow diagram are not Vital's
+   and keep their own colours. Vital's face is Lato, bundled (SIL OFL, public/fonts/lato/) in the
+   Regular and Light weights Vital ships. Effects, matrix and advanced pages style themselves
+   (vital/effects.css, matrix.css, advanced.css). */
 
 @font-face { font-family: 'Vital Lato'; src: url('/fonts/lato/Lato-Regular.ttf') format('truetype'); font-weight: 400; font-display: swap; }
 @font-face { font-family: 'Vital Lato'; src: url('/fonts/lato/Lato-Light.ttf') format('truetype'); font-weight: 300; font-display: swap; }
 
-.vt { font-family: 'Vital Lato', Lato, 'Avenir Next', system-ui, sans-serif; color: #d3d6d6; }
-.vt-root { position: absolute; inset: 0; background: #212428; border-radius: 9px; overflow: hidden; font-size: 9px; letter-spacing: 0.01em; }
+.vt { font-family: 'Vital Lato', Lato, 'Avenir Next', system-ui, sans-serif; color: var(--sk-body-text); }
+/* A section's own Body Text for its text (colour inherits as a value, so each override sets it again). */
+:where(.vt [data-skin]) { color: var(--sk-body-text); }
+/* Skin layers for the components Vital parents to the whole window whatever they sit over here: the
+   ModulationManager's (Modulation Drag Drop: depth rings, drop targets) and the PopupDisplay's (Popup
+   Browser: value popups). The globals here; DragGhost's SkinLayers puts each section's overrides over
+   them. */
+.vt {
+  --vt-mdd-rotary-arc: var(--sk-rotary-arc); --vt-mdd-widget-background: var(--sk-widget-background);
+  --vt-mdd-lighten-screen: var(--sk-lighten-screen); --vt-mdd-modulation-meter-control: var(--sk-modulation-meter-control);
+  --vt-mdd-label-rounding: var(--sk-label-rounding);
+  --vt-pb-body: var(--sk-body); --vt-pb-border: var(--sk-border); --vt-pb-body-text: var(--sk-body-text); --vt-pb-body-rounding: var(--sk-body-rounding);
+}
+.vt-root { position: absolute; inset: 0; background: color-mix(in srgb, var(--sk-background) 87%, black); border-radius: 9px; overflow: hidden; font-size: 9px; letter-spacing: 0.01em; }
 .vt-root * { box-sizing: border-box; }
 .vt-b { position: absolute; }
 .vt-dragging, .vt-dragging * { cursor: grabbing !important; }
 
-/* Header */
+/* Header (the title bar is this build's own, not Vital's: literal colours) */
 .vt-title { position: absolute; left: 0; top: 0; right: 0; height: 19px; background: #3c3c3e; display: flex; align-items: center; gap: 4px; padding-left: 7px; }
 .vt-title i { width: 7px; height: 7px; border-radius: 50%; background: #ec6a5e; } .vt-title i:nth-child(2) { background: #f4bf4f; } .vt-title i:nth-child(3) { background: #61c554; }
 .vt-title span { position: absolute; left: 0; right: 0; text-align: center; font-size: 9px; font-weight: 700; color: #cfcfcf; }
-.vt-header { background: #262a2e; }
+.vt-header { background: var(--sk-background); }
+.vt-headerskin, .vt-skinwrap { display: contents; }
 .vt-logo { position: absolute; }
-.vt-tabtrack { background: #606265; }
-.vt-tabmark { background: #aa88ff; transition: left 0.12s; }
-.vt-tab { position: absolute; height: 18px; background: none; border: none; padding: 0; color: #e6e6e6; font: inherit; font-size: 10.5px; letter-spacing: 0.04em; cursor: pointer; border-radius: 0; }
-.vt-tab.on { color: #aa88ff; }
+/* TabSelector: a Lighten Screen strip (seen brighter in the capture), Widget Primary 1 under the tab. */
+.vt-tabtrack { background: rgb(from var(--sk-lighten-screen) r g b / calc(alpha * 2.2)); }
+.vt-tabmark { background: var(--sk-widget-primary-1); transition: left 0.12s; }
+.vt-tab { position: absolute; height: 18px; background: none; border: none; padding: 0; color: color-mix(in srgb, var(--sk-text-component-text) 90%, var(--sk-background)); font: inherit; font-size: 10.5px; letter-spacing: 0.04em; cursor: pointer; border-radius: 0; }
+.vt-tab.on { color: var(--sk-widget-primary-1); }
 .vt-tabregion { position: static; }
-.vt-preset { background: #14181b; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; padding: 0 9px; font-size: 11px; color: #ffffff; }
-.vt-preset .arr { color: #c8c8c8; font-size: 13px; }
+.vt-preset { background: var(--sk-popup-selector-background); border-radius: calc(var(--sk-body-rounding) * 1.5px); display: flex; justify-content: space-between; align-items: center; padding: 0 9px; font-size: 11px; color: var(--sk-preset-text); }
+.vt-preset .arr { color: color-mix(in srgb, var(--sk-preset-text) 78%, var(--sk-popup-selector-background)); font-size: 13px; }
 .vt-preset .nm { cursor: pointer; }
-.vt-tools { display: flex; justify-content: space-between; align-items: center; color: #b8babc; font-size: 11px; }
+/* The header's icon buttons: Icon Button Off (brightened, as captured; the disabled ones toward Background). */
+.vt-tools { display: flex; justify-content: space-between; align-items: center; color: color-mix(in srgb, var(--sk-icon-button-off) 60%, white); font-size: 11px; }
 .vt-tools span { cursor: pointer; }
-.vt-tools .dim { color: #6a6d70; cursor: default; }
+.vt-tools .dim { color: color-mix(in srgb, var(--sk-icon-button-off) 72%, var(--sk-background)); cursor: default; }
 .vt-meter { touch-action: none; }
-.vt-scope { background: #1d2125; border-radius: 4px; }
+/* The header's displays: Widget Background half-way to Background, as the peak meters' backing. */
+.vt-scope { background: color-mix(in srgb, var(--sk-widget-background) 50%, var(--sk-background)); border-radius: calc(var(--sk-body-rounding) * 1px); }
 
 /* Macro column */
 .vt-macros { position: absolute; }
-.vt-macrotop { background: #4c4f52; border-radius: 4px 4px 0 0; }
-.vt-macrobot { background: #2c3033; border-radius: 0 0 4px 4px; }
-.vt-slot { position: absolute; left: 1px; top: 4px; bottom: 4px; width: 5px; background: #1d2125; border-radius: 3px; }
-.vt-slot.used { box-shadow: inset 0 0 0 1px #64ffda; }
+.vt-macrotop { background: var(--sk-body); border-radius: calc(var(--sk-body-rounding) * 1px) calc(var(--sk-body-rounding) * 1px) 0 0; }
+.vt-macrobot { background: var(--sk-modulation-button-unselected); border-radius: 0 0 calc(var(--sk-body-rounding) * 1px) calc(var(--sk-body-rounding) * 1px); }
+.vt-slot { position: absolute; left: 1px; top: 4px; bottom: 4px; width: 5px; background: var(--sk-widget-background); border-radius: 3px; }
+.vt-slot.used { box-shadow: inset 0 0 0 1px var(--sk-modulation-meter-control); }
 /* The live source meter (Modulation Meter colour). */
-.vt-slotmeter { position: absolute; left: 1px; right: 1px; background: #1de9b6; border-radius: 3px; }
+.vt-slotmeter { position: absolute; left: 1px; right: 1px; background: var(--sk-modulation-meter); border-radius: 3px; }
 .vt .drag { cursor: grab; touch-action: none; }
-.vt-pen { position: absolute; color: #7f8284; font-size: 10px; cursor: pointer; z-index: 2; }
-.vt-mlabel { position: absolute; text-align: center; font-size: 8px; color: #f2f2f2; pointer-events: none; }
+.vt-pen { position: absolute; color: var(--sk-icon-button-off); font-size: 10px; cursor: pointer; z-index: 2; }
+.vt-mlabel { position: absolute; text-align: center; font-size: 8px; color: color-mix(in srgb, var(--sk-text-component-text) 95%, var(--sk-modulation-button-unselected)); pointer-events: none; }
 .vt-mlabel.top { left: 0; right: 0; top: 4px; }
-.vt-mname { position: absolute; height: 12px; font: inherit; font-size: 8px; text-align: center; background: #2c3033; color: #ffffff; border: 1px solid #848789; border-radius: 3px; padding: 0; z-index: 5; }
+.vt-mname { position: absolute; height: 12px; font: inherit; font-size: 8px; text-align: center; background: var(--sk-text-editor-background); color: var(--sk-text-component-text); border: 1px solid var(--sk-ui-button); border-radius: 3px; padding: 0; z-index: 5; }
 .vt-wheels { border-radius: 4px; }
 .vt-wheels .w { position: absolute; top: 6px; width: 13px; height: 37px; border-radius: 2px; cursor: ns-resize; touch-action: none; }
 
 /* Sections on the VOICE page */
-.vt-osc, .vt-filter { position: absolute; background: #4c4f52; border-radius: 4px; }
-.vt-osc:not(.on)::after, .vt-filter:not(.on)::after { content: ''; position: absolute; inset: 0; border-radius: 4px; background: rgba(29, 33, 37, 0.7); pointer-events: none; z-index: 3; }
-.vt-strip { background: #3e4245; border-radius: 4px 0 0 4px; }
-.vt-dot { position: absolute; width: 11px; height: 11px; border-radius: 50%; background: #848789; cursor: pointer; z-index: 4; }
-.vt-osc:not(.on) .vt-dot, .vt-filter:not(.on) .vt-dot { background: #606265; }
-.vt-vlabel { position: absolute; transform: translate(-50%, -50%) rotate(-90deg); font-size: 9.5px; color: #848789; letter-spacing: 0.06em; white-space: nowrap; }
-.vt-chip { background: #2c3033; border-radius: 6px; }
-.vt-chip .l, .vt-chip .r { position: absolute; top: 9px; font-size: 10px; color: #ffffff; } .vt-chip .l { left: 8px; } .vt-chip .r { right: 8px; }
-.vt-chip .t { position: absolute; left: 50%; top: 0; transform: translateX(-50%); background: #3e4245; border-radius: 0 0 6px 6px; padding: 1px 7px 2px; font-size: 8.5px; pointer-events: none; }
+.vt-osc, .vt-filter { position: absolute; background: var(--sk-body); border-radius: calc(var(--sk-body-rounding) * 1px); }
+.vt-osc:not(.on)::after, .vt-filter:not(.on)::after { content: ''; position: absolute; inset: 0; border-radius: calc(var(--sk-body-rounding) * 1px); background: color-mix(in srgb, color-mix(in srgb, var(--sk-background) 77%, black) 70%, transparent); pointer-events: none; z-index: 3; }
+.vt-strip { background: var(--sk-body-heading-background); border-radius: calc(var(--sk-body-rounding) * 1px) 0 0 calc(var(--sk-body-rounding) * 1px); }
+.vt-dot { position: absolute; width: 11px; height: 11px; border-radius: 50%; background: var(--sk-icon-button-off); cursor: pointer; z-index: 4; }
+.vt-osc:not(.on) .vt-dot, .vt-filter:not(.on) .vt-dot { background: var(--sk-power-button-off); }
+.vt .vt-dot.on { background: var(--sk-power-button-on); }
+.vt-vlabel { position: absolute; transform: translate(-50%, -50%) rotate(-90deg); font-size: 9.5px; color: color-mix(in srgb, var(--sk-heading-text) 45%, var(--sk-body-heading-background)); letter-spacing: 0.06em; white-space: nowrap; }
+/* Text components (Text Component Background, Label Rounding) and their labels (Label Background). */
+.vt-chip { background: var(--sk-text-component-background); border-radius: calc(var(--sk-label-rounding) * 2px / 3); }
+.vt-chip .l, .vt-chip .r { position: absolute; top: 9px; font-size: 10px; color: var(--sk-text-component-text); } .vt-chip .l { left: 8px; } .vt-chip .r { right: 8px; }
+.vt-chip .t { position: absolute; left: 50%; top: 0; transform: translateX(-50%); background: var(--sk-label-background); border-radius: 0 0 calc(var(--sk-label-rounding) * 2px / 3) calc(var(--sk-label-rounding) * 2px / 3); padding: 1px 7px 2px; font-size: 8.5px; pointer-events: none; }
 .vt-chip.flat { display: flex; align-items: center; justify-content: center; gap: 4px; }
-.vt-chip .pen { color: #c8c8c8; font-size: 9px; cursor: pointer; } .vt-chip .pen.on { color: #64ffda; }
+.vt-chip .pen { color: color-mix(in srgb, var(--sk-text-component-text) 75%, var(--sk-text-component-background)); font-size: 9px; cursor: pointer; } .vt-chip .pen.on { color: var(--sk-icon-button-on); }
 .vt-chip .mini { width: 40px; height: 8px; cursor: pointer; } .vt-chip .c { font-size: 8.5px; }
 .vt-grid-n { cursor: pointer; min-width: 9px; text-align: center; }
-.vt-pill { background: #3e4245; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 8.5px; color: #d3d6d6; }
-.vt-pill.dim { color: #8a8d90; }
-.vt-toggle.vt-pill { color: #8a8d90; }
-.vt-toggle.vt-pill.on { color: #ffffff; }
-.vt-sel { background: #2c3033; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; padding: 0 6px; font-size: 8.5px; color: #ffffff; }
-.vt-sel .arr { color: #b8babc; font-size: 10px; cursor: pointer; padding: 0 2px; }
+.vt-pill { background: var(--sk-label-background); border-radius: calc(var(--sk-label-rounding) * 2px / 3); display: flex; align-items: center; justify-content: center; font-size: 8.5px; color: var(--sk-body-text); }
+.vt-pill.dim { color: color-mix(in srgb, var(--sk-body-text) 50%, var(--sk-label-background)); }
+.vt-toggle.vt-pill { color: color-mix(in srgb, var(--sk-body-text) 50%, var(--sk-label-background)); }
+.vt-toggle.vt-pill.on { color: var(--sk-text-component-text); }
+.vt-sel { background: var(--sk-text-component-background); border-radius: calc(var(--sk-label-rounding) * 2px / 3); display: flex; justify-content: space-between; align-items: center; padding: 0 6px; font-size: 8.5px; color: var(--sk-text-component-text); }
+.vt-sel .arr { color: color-mix(in srgb, var(--sk-text-component-text) 65%, var(--sk-text-component-background)); font-size: 10px; cursor: pointer; padding: 0 2px; }
 .vt-sel .nm { cursor: pointer; flex: 1; text-align: center; white-space: nowrap; overflow: hidden; }
 .vt-sel.big { font-size: 10.5px; }
-.vt-sel.dim { color: #5d6064; }
-.vt-screen { background: #1d2125; border-radius: 6px; overflow: hidden; }
+.vt-sel.dim { color: color-mix(in srgb, var(--sk-text-component-text) 25%, var(--sk-text-component-background)); }
+.vt-screen { background: var(--sk-widget-background); border-radius: calc(var(--sk-widget-rounded-corner) * 2px / 3); overflow: hidden; }
 .vt-screen svg { position: absolute; inset: 0; width: 100%; height: 100%; }
-.vt-tname { position: absolute; left: 6px; right: 6px; top: 3px; display: flex; justify-content: space-between; font-size: 10px; color: #ffffff; z-index: 1; }
-.vt-tname .arr { color: #b8babc; cursor: pointer; padding: 0 2px; }
+.vt-tname { position: absolute; left: 6px; right: 6px; top: 3px; display: flex; justify-content: space-between; font-size: 10px; color: var(--sk-preset-text); z-index: 1; }
+.vt-tname .arr { color: color-mix(in srgb, var(--sk-preset-text) 70%, var(--sk-widget-background)); cursor: pointer; padding: 0 2px; }
 .vt-tname .nm { cursor: pointer; }
 .vt-wavesvg { top: 16px !important; height: calc(100% - 16px) !important; }
-.vt-2d { position: absolute; left: 9px; bottom: 6px; font-size: 10px; color: #6a6d70; cursor: pointer; }
-.vt-pencil { position: absolute; right: 8px; bottom: 5px; color: #7f8284; font-size: 11px; }
-.vt-vscroll { background: #848789; border-radius: 5px; }
-.vt-vscroll i { position: absolute; left: 0; right: 0; background: #ffffff; border-radius: 5px; }
-.vt-smpicons { background: #2c3033; border-radius: 6px; }
-.vt-smpicon { position: absolute; cursor: pointer; overflow: visible; color: #848789; transition: color 83ms linear; }
-.vt-smpicon:hover { color: #aaacad; } .vt-smpicon.down { color: #848789; transition: none; }
-.vt-smpicon.on { color: #aa88ff; } .vt-smpicon.on:hover { color: #bda3ff; } .vt-smpicon.on.down { color: #906de9; }
-.vt-smpdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.133); pointer-events: none; border-radius: inherit; }
+.vt-2d { position: absolute; left: 9px; bottom: 6px; font-size: 10px; color: color-mix(in srgb, var(--sk-body-text) 40%, var(--sk-widget-background)); cursor: pointer; }
+.vt-pencil { position: absolute; right: 8px; bottom: 5px; color: var(--sk-icon-button-off); font-size: 11px; }
+.vt-vscroll { background: var(--sk-linear-slider); border-radius: 5px; }
+.vt-vscroll i { position: absolute; left: 0; right: 0; background: var(--sk-linear-slider-thumb); border-radius: 5px; }
+.vt-smpicons { background: var(--sk-text-component-background); border-radius: calc(var(--sk-label-rounding) * 2px / 3); }
+.vt-smpicon { position: absolute; cursor: pointer; overflow: visible; color: var(--sk-icon-button-off); transition: color 83ms linear; }
+.vt-smpicon:hover { color: var(--sk-icon-button-off-hover); } .vt-smpicon.down { color: var(--sk-icon-button-off-pressed); transition: none; }
+.vt-smpicon.on { color: var(--sk-icon-button-on); } .vt-smpicon.on:hover { color: var(--sk-icon-button-on-hover); } .vt-smpicon.on.down { color: var(--sk-icon-button-on-pressed); }
+.vt-smpdrop { position: absolute; inset: 0; background: var(--sk-overlay-screen); pointer-events: none; border-radius: inherit; }
 
-.vt-fname { position: absolute; font-size: 11.5px; color: #848789; letter-spacing: 0.02em; }
+.vt-fname { position: absolute; font-size: 11.5px; color: color-mix(in srgb, var(--sk-heading-text) 38%, var(--sk-body)); letter-spacing: 0.02em; }
 .vt-fic { position: absolute; width: 7px; height: 4px; }
-.vt-hslide { background: #262a2e; border-radius: 4px; }
-.vt-hslide .fill { position: absolute; top: 0; bottom: 0; background: #848789; border-radius: 4px; }
-.vt-hslide .h { position: absolute; top: 0; bottom: 0; width: 15px; background: #ffffff; border-radius: 4px; }
+.vt-hslide { background: var(--sk-linear-slider-unselected); border-radius: 4px; }
+.vt-hslide .fill { position: absolute; top: 0; bottom: 0; background: var(--sk-linear-slider); border-radius: 4px; }
+.vt-hslide .h { position: absolute; top: 0; bottom: 0; width: 15px; background: var(--sk-linear-slider-thumb); border-radius: 4px; }
 .vt-fscreen { cursor: crosshair; touch-action: none; }
 .vt-fsrc { position: absolute; }
-.vt-fin { background: #2c3033; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 8.5px; color: #8a8d90; }
-.vt-fin.on { color: #ffb74d; }
+.vt-fin { background: var(--sk-text-component-background); border-radius: calc(var(--sk-label-rounding) * 8px / 9); display: flex; align-items: center; justify-content: center; font-size: 8.5px; color: color-mix(in srgb, var(--sk-body-text) 58%, var(--sk-text-component-background)); }
+.vt-fin.on { color: var(--sk-icon-button-on); }
 
 /* Modulator column */
 .vt-mod, .vt-midi { position: absolute; }
-.vt-sidetabs { background: #2c3033; border-radius: 4px 0 0 4px; overflow: hidden; }
-.vt-sidetabs > .vt-sidetab { padding-left: 8px; display: flex; justify-content: center; padding-top: 6px; font-size: 8.5px; color: #f2f2f2; background: #2c3033; }
-.vt-sidetabs > .vt-sidetab.sel { background: #4c4f52; }
-.vt-modbody { background: #4c4f52; border-radius: 0 4px 4px 0; }
-.vt-voice { border-radius: 4px; }
-.vt-grid::before { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(90deg, transparent 0 63px, #23272b 63px 64px); }
-.vt-gridlbl { font-size: 3.6px; fill: #3e4245; }
-.vt-pt { position: absolute; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; border: 1.2px solid #64ffda; background: #1d2125; cursor: move; touch-action: none; z-index: 2; }
-.vt-pt.small { width: 4px; height: 4px; margin: -2px 0 0 -2px; border: none; background: #64ffda; cursor: ns-resize; }
-.vt-pt::before { content: ''; position: absolute; inset: -5px; }
-.vt-head { position: absolute; width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px; border-radius: 50%; background: #64ffda; box-shadow: 0 0 6px #64ffda; pointer-events: none; z-index: 3; }
-.vt-mag { position: absolute; right: 6px; top: 3px; color: #c8c8c8; font-size: 13px; cursor: pointer; z-index: 2; }
-.vt-curve { position: absolute; width: 10px; height: 10px; color: #6a6d70; cursor: pointer; }
-.vt-curve.on { color: #64ffda; }
+.vt-sidetabs { background: var(--sk-modulation-button-unselected); border-radius: calc(var(--sk-body-rounding) * 1px) 0 0 calc(var(--sk-body-rounding) * 1px); overflow: hidden; }
+.vt-sidetabs > .vt-sidetab { padding-left: 8px; display: flex; justify-content: center; padding-top: 6px; font-size: 8.5px; color: color-mix(in srgb, var(--sk-text-component-text) 95%, var(--sk-modulation-button-unselected)); background: var(--sk-modulation-button-unselected); }
+.vt-sidetabs > .vt-sidetab.sel { background: var(--sk-modulation-button-selected); }
+.vt-modbody { background: var(--sk-body); border-radius: 0 calc(var(--sk-body-rounding) * 1px) calc(var(--sk-body-rounding) * 1px) 0; }
+.vt-voice { border-radius: calc(var(--sk-body-rounding) * 1px); }
+.vt-mag { position: absolute; right: 6px; top: 3px; color: color-mix(in srgb, var(--sk-text-component-text) 75%, var(--sk-widget-background)); font-size: 13px; cursor: pointer; z-index: 2; }
+.vt-curve { position: absolute; width: 10px; height: 10px; color: color-mix(in srgb, var(--sk-icon-button-off) 60%, var(--sk-body)); cursor: pointer; }
+.vt-curve.on { color: var(--sk-icon-button-on); }
 .vt-curve svg { width: 100%; height: 100%; }
-.vt-valbox { background: #2c3033; border-radius: 6px; overflow: hidden; cursor: pointer; }
-.vt-valbox b { position: absolute; left: 0; right: 0; top: 10px; text-align: center; font-weight: 400; font-size: 10.5px; color: #ffffff; display: flex; justify-content: center; align-items: center; gap: 6px; }
-.vt-valbox > span { position: absolute; left: 0; right: 0; bottom: 0; height: 13px; background: #3e4245; text-align: center; font-size: 8.5px; line-height: 13px; }
+.vt-valbox { background: var(--sk-text-component-background); border-radius: calc(var(--sk-label-rounding) * 2px / 3); overflow: hidden; cursor: pointer; }
+.vt-valbox b { position: absolute; left: 0; right: 0; top: 10px; text-align: center; font-weight: 400; font-size: 10.5px; color: var(--sk-text-component-text); display: flex; justify-content: center; align-items: center; gap: 6px; }
+.vt-valbox > span { position: absolute; left: 0; right: 0; bottom: 0; height: 13px; background: var(--sk-label-background); text-align: center; font-size: 8.5px; line-height: 13px; }
 .vt-tempo { cursor: default; }
-.vt-sep { display: inline-block; width: 1px; height: 14px; background: #848789; }
-.vt-noteicon { font-size: 12px; color: #848789; cursor: pointer; min-width: 10px; }
-.vt-midline { position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: #6a6d70; }
-.vt-midicell { background: #2c3033; border-radius: 4px; display: flex; justify-content: center; padding-top: 6px; font-size: 7.6px; letter-spacing: 0; white-space: nowrap; color: #f2f2f2; }
-.vt-num { background: #2c3033; border-radius: 6px 6px 0 0; display: flex; align-items: center; justify-content: center; font-size: 10.5px; color: #ffffff; }
+.vt-sep { display: inline-block; width: 1px; height: 14px; background: var(--sk-icon-button-off); }
+.vt-noteicon { font-size: 12px; color: var(--sk-icon-button-off); cursor: pointer; min-width: 10px; }
+.vt-midline { position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: color-mix(in srgb, var(--sk-body-text) 40%, var(--sk-widget-background)); }
+.vt-midicell { background: var(--sk-modulation-button-unselected); border-radius: calc(var(--sk-body-rounding) * 1px); display: flex; justify-content: center; padding-top: 6px; font-size: 7.6px; letter-spacing: 0; white-space: nowrap; color: color-mix(in srgb, var(--sk-text-component-text) 95%, var(--sk-modulation-button-unselected)); }
+.vt-num { background: var(--sk-text-component-background); border-radius: calc(var(--sk-label-rounding) * 2px / 3) calc(var(--sk-label-rounding) * 2px / 3) 0 0; display: flex; align-items: center; justify-content: center; font-size: 10.5px; color: var(--sk-text-component-text); }
 .vt-num.slope { cursor: ns-resize; touch-action: none; }
 .vt-num.slope svg { width: 100%; height: 100%; }
 .vt-note { width: 12px; height: 11px; margin-left: 6px; vertical-align: -1px; }
 
 /* Keyboard */
 .vt-keyboard { touch-action: none; cursor: pointer; }
-.vt-keyboard .wk { position: absolute; top: 0; bottom: 0; background: #4c4f52; border-radius: 0 0 2px 2px; }
-.vt-keyboard .bk { position: absolute; top: 0; height: 70%; background: #262a2e; border-radius: 0 0 2px 2px; z-index: 1; }
-.vt-keyboard .wk.hover, .vt-keyboard .bk.hover { box-shadow: inset 0 0 0 100px rgba(255, 255, 255, 0.196); }
-.vt-keyboard .on { background: #aa88ff; }
+/* MidiKeyboard (Keyboard skin): Widget Secondary 1 / 2 keys, Widget Accent 2 hover, Widget Primary 1 down. */
+.vt-keyboard .wk { position: absolute; top: 0; bottom: 0; background: var(--sk-widget-secondary-1); border-radius: 0 0 calc(var(--sk-widget-rounded-corner) * 0.5px) calc(var(--sk-widget-rounded-corner) * 0.5px); }
+.vt-keyboard .bk { position: absolute; top: 0; height: 70%; background: var(--sk-widget-secondary-2); border-radius: 0 0 calc(var(--sk-widget-rounded-corner) * 0.5px) calc(var(--sk-widget-rounded-corner) * 0.5px); z-index: 1; }
+.vt-keyboard .wk.hover, .vt-keyboard .bk.hover { box-shadow: inset 0 0 0 100px var(--sk-widget-accent-2); }
+.vt-keyboard .on { background: var(--sk-widget-primary-1); }
 
 /* Pages share the centre */
 .vt-page { position: absolute; }
@@ -144,57 +162,62 @@
 .vt-knob { position: absolute; cursor: ns-resize; touch-action: none; }
 .vt-knob svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .vt-hslide { cursor: ew-resize; touch-action: none; }
-.vt-hslide .mod { position: absolute; top: -3px; bottom: -3px; border-top: 1px solid #1de9b6; border-bottom: 1px solid #1de9b6; pointer-events: none; }
+.vt-hslide .mod { position: absolute; top: -3px; bottom: -3px; border-top: 1px solid var(--sk-modulation-meter); border-bottom: 1px solid var(--sk-modulation-meter); pointer-events: none; }
 .vt-vscroll { cursor: ns-resize; touch-action: none; }
 .vt-tv { cursor: ns-resize; touch-action: none; }
 .vt-toggle { cursor: pointer; }
-.vt-bubble { position: absolute; left: 50%; bottom: calc(100% + 4px); transform: translateX(-50%); background: #1d2125; border: 1px solid #5d6064; border-radius: 5px; padding: 2px 7px; font-size: 9.5px; line-height: 12px; color: #e8e8e8; white-space: nowrap; z-index: 40; pointer-events: none; }
+/* PopupDisplay: the Popup Browser skin's Body, Border and Body Text (--vt-pb-*, DragGhost's SkinLayers). */
+.vt-bubble { position: absolute; left: 50%; bottom: calc(100% + 4px); transform: translateX(-50%); background: var(--vt-pb-body); border: 1px solid var(--vt-pb-border); border-radius: calc(var(--vt-pb-body-rounding) * 1.25px); padding: 2px 7px; font-size: 9.5px; line-height: 12px; color: var(--vt-pb-body-text); white-space: nowrap; z-index: 40; pointer-events: none; }
 .vt-bubble.below { top: calc(100% + 4px); bottom: auto; }
 /* ModulationAmountKnob as the 1.5.5 capture draws it: a 24 pt Widget Background disc, the amount an arc
    band from 46 % to 94 % of the radius in the ring's colour, the band growing inward to 27 % while the
-   ring is hovered or dragged (Vital's thickness 1 → 1.8). */
+   ring is hovered or dragged (Vital's thickness 1 → 1.8). The rings are the ModulationManager's, so they
+   take the Modulation Drag Drop skin (--vt-mdd-*, DragGhost's SkinLayers) wherever they sit. */
 .vt-ring { position: absolute; width: 16.67px; height: 16.67px; z-index: 6; cursor: ns-resize; touch-action: none; }
-.vt-ring .vt-ringdot { position: relative; display: block; width: 100%; height: 100%; border-radius: 50%; box-shadow: inset 0 0 0 0.5px #1d2125; }
-.vt-ring .vt-ringdot::before { content: ''; position: absolute; inset: 3%; border-radius: 50%; box-shadow: 0 0 0 0.6px #1d2125; }
-.vt-ring .vt-ringdot::after { content: ''; position: absolute; left: 50%; top: 50%; width: 46%; height: 46%; transform: translate(-50%, -50%); border-radius: 50%; background: #1d2125; }
+.vt-ring .vt-ringdot { position: relative; display: block; width: 100%; height: 100%; border-radius: 50%; box-shadow: inset 0 0 0 0.5px var(--vt-mdd-widget-background); }
+.vt-ring .vt-ringdot::before { content: ''; position: absolute; inset: 3%; border-radius: 50%; box-shadow: 0 0 0 0.6px var(--vt-mdd-widget-background); }
+.vt-ring .vt-ringdot::after { content: ''; position: absolute; left: 50%; top: 50%; width: 46%; height: 46%; transform: translate(-50%, -50%); border-radius: 50%; background: var(--vt-mdd-widget-background); }
 .vt-ring.bypass { opacity: 0.45; }
-.vt .target::after { content: ''; position: absolute; inset: -2px; border-radius: 6px; background: rgba(55, 190, 172, 0.34); pointer-events: none; z-index: 4; }
-.vt-menu { position: absolute; z-index: 60; display: flex; background: #262a2e; border: 1px solid #4c4f52; border-radius: 5px; padding: 4px 0; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55); }
-.vt-menucol + .vt-menucol { border-left: 1px solid #3e4245; }
-.vt-menuitem { display: block; width: 100%; text-align: left; background: none; border: 0; border-radius: 0; color: #d3d6d6; font: inherit; font-size: 10px; height: 21px; padding: 0 8px; cursor: pointer; white-space: nowrap; }
-.vt-menuitem:hover { background: #3e4245; }
-.vt-menuitem.on { background: #9977ee; color: #ffffff; }
-.vt-menuitem.dim { color: #6a6d70; cursor: default; }
-.vt-menusep { display: block; height: 1px; margin: 4px 8px; background: #4c4f52; }
+/* A drop target while a source is dragged: ModulationDestination's Lighten Screen (Modulation Drag Drop). */
+.vt .target::after { content: ''; position: absolute; inset: -2px; border-radius: calc(var(--vt-mdd-label-rounding) * 1.5px); background: var(--vt-mdd-lighten-screen); pointer-events: none; z-index: 4; }
+/* PopupMenu (the global popup colours): Popup Background, Body Text, Lighten Screen under the hovered
+   item, Widget Primary 1 (darkened) under the selected one. */
+.vt-menu { position: absolute; z-index: 60; display: flex; background: var(--sk-popup-background); border: 1px solid var(--sk-body); border-radius: calc(var(--sk-body-rounding) * 1.25px); padding: 4px 0; box-shadow: 0 6px 18px var(--sk-shadow); }
+.vt-menucol + .vt-menucol { border-left: 1px solid var(--sk-body-heading-background); }
+.vt-menuitem { display: block; width: 100%; text-align: left; background: none; border: 0; border-radius: 0; color: var(--sk-body-text); font: inherit; font-size: 10px; height: 21px; padding: 0 8px; cursor: pointer; white-space: nowrap; }
+.vt-menuitem:hover { background: var(--sk-lighten-screen); }
+.vt-menuitem.on { background: color-mix(in srgb, var(--sk-widget-primary-1) 90%, black); color: var(--sk-text-component-text); }
+.vt-menuitem.dim { color: color-mix(in srgb, var(--sk-body-text) 40%, var(--sk-popup-background)); cursor: default; }
+.vt-menusep { display: block; height: 1px; margin: 4px 8px; background: var(--sk-body); }
 
 /* The live modulation meter (engine running, a voice playing): from the set value to the modulated one. */
-.vt-hslide .mod.live { top: auto; bottom: -4px; height: 2px; border: 0; background: #64ffda; }
+.vt-hslide .mod.live { top: auto; bottom: -4px; height: 2px; border: 0; background: var(--sk-modulation-meter-control); }
 
 /* Popup placements (SynthSlider popup placement) and inline value entry. */
 .vt-bubble.right { left: calc(100% + 4px); top: 50%; bottom: auto; transform: translateY(-50%); }
 .vt-bubble.left { left: auto; right: calc(100% + 4px); top: 50%; bottom: auto; transform: translateY(-50%); }
-.vt-entry { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 52px; z-index: 60; background: #2c3033;
-  border: 1px solid #ffffff; border-radius: 4px; color: #ffffff; font: inherit; font-size: 10px; text-align: center; padding: 1px 3px; }
+.vt-entry { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 52px; z-index: 60; background: var(--sk-text-editor-background);
+  border: 1px solid var(--sk-text-component-text); border-radius: calc(var(--sk-body-rounding) * 1px); color: var(--sk-text-component-text); font: inherit; font-size: 10px; text-align: center; padding: 1px 3px; }
 .vt-tv .vt-entry { width: 44px; }
 /* Hover thickens bars as OpenGlSlider::redoImage does knob arcs. */
-.vt-hslide.hover .h { box-shadow: 0 0 0 0.6px rgba(255, 255, 255, 0.6); }
-.vt-vscroll.hover > i { box-shadow: 0 0 0 0.6px rgba(255, 255, 255, 0.6); }
-.vt-vscroll .mod { position: absolute; left: -3px; right: -3px; border-left: 1px solid #1de9b6; border-right: 1px solid #1de9b6; pointer-events: none; }
-.vt-vscroll .mod.live { left: auto; right: -4px; width: 2px; border: 0; background: #64ffda; }
+.vt-hslide.hover .h { box-shadow: 0 0 0 0.6px color-mix(in srgb, var(--sk-linear-slider-thumb) 60%, transparent); }
+.vt-vscroll.hover > i { box-shadow: 0 0 0 0.6px color-mix(in srgb, var(--sk-linear-slider-thumb) 60%, transparent); }
+.vt-vscroll .mod { position: absolute; left: -3px; right: -3px; border-left: 1px solid var(--sk-modulation-meter); border-right: 1px solid var(--sk-modulation-meter); pointer-events: none; }
+.vt-vscroll .mod.live { left: auto; right: -4px; width: 2px; border: 0; background: var(--sk-modulation-meter-control); }
 /* A depth ring thickens on hover (1.0 → 1.8). */
 .vt-ring.hot .vt-ringdot::after, .vt-ring:active .vt-ringdot::after { width: 27%; height: 27%; }
 
 /* Modulation source buttons (modulation_button.cpp / ModulationManager). The current modulator gets a
    Modulation Meter Control border, 1 pt at rest and 2.6 pt while it's being dragged. */
-.vt-srcbtn.current { box-shadow: inset 0 0 0 0.7px #64ffda; }
-.vt-srcbtn.current.dragging { box-shadow: inset 0 0 0 1.8px #64ffda; }
-.vt-draghandle { position: absolute; fill: rgba(255, 255, 255, 0.133); opacity: 0; transition: opacity 0.11s linear; pointer-events: none; }
+.vt-srcbtn.current { box-shadow: inset 0 0 0 0.7px var(--sk-modulation-meter-control); }
+.vt-srcbtn.current.dragging { box-shadow: inset 0 0 0 1.8px var(--sk-modulation-meter-control); }
+.vt-draghandle { position: absolute; fill: var(--sk-lighten-screen); opacity: 0; transition: opacity 0.11s linear; pointer-events: none; }
 .vt-draghandle.on { opacity: 1; }
-.vt-srcbtn:active .vt-draghandle.on { fill: rgba(255, 255, 255, 0.266); }
+.vt-srcbtn:active .vt-draghandle.on { fill: rgb(from var(--sk-lighten-screen) r g b / calc(alpha * 2)); }
 .vt-srcexpand { position: absolute; border-radius: 3px; cursor: pointer; }
-.vt-srcexpand:hover, .vt-srcexpand.on { background: rgba(255, 255, 255, 0.133); }
-.vt-srccallout { position: absolute; z-index: 40; background: #2c3033; border: 1px solid #4c4f52; border-radius: 4px; }
-.vt-dragghost { position: absolute; z-index: 50; border-radius: 50%; border-style: solid; border-color: #64ffda; box-sizing: border-box; pointer-events: none; }
+.vt-srcexpand:hover, .vt-srcexpand.on { background: var(--sk-lighten-screen); }
+.vt-srccallout { position: absolute; z-index: 40; background: var(--sk-modulation-button-unselected); border: 1px solid var(--sk-body); border-radius: calc(var(--sk-body-rounding) * 1px); }
+.vt-dragghost { position: absolute; z-index: 50; border-radius: 50%; border-style: solid; border-color: var(--sk-modulation-meter-control); box-sizing: border-box; pointer-events: none; }
 .vt-tv { position: relative; }
 .vt-tvrings { position: absolute; left: 50%; bottom: -13px; width: 0; height: 12px; z-index: 6; }
 .vt-linmeter { position: absolute; width: 1.4px; pointer-events: none; }
@@ -202,128 +225,12 @@
 /* Transpose snap (transpose_quantize.cpp) and the unison viewer. */
 .vt-qbutton { cursor: pointer; }
 .vt-unison { cursor: ns-resize; touch-action: none; }
-.vt-snapcallout { position: absolute; z-index: 45; background: #4c4f52; border: 1px solid #000000; border-radius: 4px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5); touch-action: none; }
-.vt-snaptitle { position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center; justify-content: center; color: #d3d6d6; font-weight: 300; }
-.vt-snapglobal { position: absolute; left: 0; right: 0; display: flex; align-items: center; justify-content: center; background: #3e4245; border-radius: 3px; font-size: 7.5px; color: #848789; cursor: pointer; }
-.vt-snapglobal.on { color: #aa88ff; }
+.vt-snapcallout { position: absolute; z-index: 45; background: var(--sk-body); border: 1px solid var(--sk-popup-border); border-radius: calc(var(--sk-body-rounding) * 1px); box-shadow: 0 2px 8px var(--sk-shadow); touch-action: none; }
+.vt-snaptitle { position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center; justify-content: center; color: var(--sk-body-text); font-weight: 300; }
+.vt-snapglobal { position: absolute; left: 0; right: 0; display: flex; align-items: center; justify-content: center; background: var(--sk-body-heading-background); border-radius: 3px; font-size: 7.5px; color: var(--sk-icon-button-off); cursor: pointer; }
+.vt-snapglobal.on { color: var(--sk-icon-button-on); }
 .vt-tempo .vt-kt { display: inline-block; min-width: 18px; text-align: center; }
-.vt-ktdiv { display: inline-block; width: 1px; height: 9px; margin: 0 3px; vertical-align: middle; background: rgba(255, 255, 255, 0.133); }
-
-/* The about box (About.tsx), as the 1.5.5 capture s0f draws it. */
-.vt-about { position: absolute; inset: 0; z-index: 80; backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px); background: rgba(0, 0, 0, 0.08); }
-.vt-aboutbox { position: absolute; background: #212529; border-radius: 20px; box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.06); }
-.vt-aboutbox > *, .vt-aboutbox > div > * { position: absolute; }
-.vt-aboutname { display: flex; align-items: center; justify-content: center; color: #ffffff; font-size: 25px; font-weight: 700; white-space: nowrap; }
-.vt-aboutver { display: flex; align-items: center; justify-content: center; color: #e2e4e4; font-size: 12px; font-weight: 300; }
-.vt-aboutlbl { display: flex; align-items: center; justify-content: flex-end; padding-right: 7px; color: #ffffff; font-size: 11.5px; font-weight: 300; box-sizing: border-box; }
-.vt-aboutbtn { background: #4c4f52; border: 0; border-radius: 5px; color: #dcdddd; font: inherit; font-size: 11.5px; font-weight: 300; cursor: pointer; padding: 0; }
-.vt-aboutbtn:hover { background: #5a5d60; }
-.vt-aboutfield { display: flex; align-items: center; justify-content: center; background: #2c3033; border-radius: 5px; color: #ffffff; font-size: 11.5px; font-weight: 300; }
-.vt-aboutmidi { background: #2c3033; border-radius: 5px; overflow-y: auto; scrollbar-width: thin; }
-.vt-aboutin { position: relative !important; display: flex; align-items: center; gap: 8px; width: 100%; height: 21px; padding: 0 0 0 7px; background: none; border: 0; color: #ffffff; font: inherit; font-size: 11.5px; font-weight: 300; cursor: pointer; text-align: left; white-space: nowrap; }
-.vt-aboutin i { flex: none; width: 14px; height: 14px; border-radius: 50%; background: #4c4f52; }
-.vt-aboutin.on i { background: #aa88ff; }
-.vt-logo { cursor: pointer; }
-
-/* SelectionList (SelectionList.tsx): Popup Browser / Preset Browser skin. */
-.vt-sl { position: absolute; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.133) transparent; }
-.vt-sl-row { position: relative; cursor: pointer; }
-.vt-sl-row.sel { background: #9977ee; }
-.vt-sl-row.hover::after { content: ''; position: absolute; inset: 0; background: rgba(255,255,255,0.133); pointer-events: none; }
-.vt-sl-row.dim { opacity: 0.5; }
-.vt-sl-icon { position: absolute; top: 0; bottom: 0; display: flex; align-items: center; justify-content: center; }
-.vt-sl-name { position: absolute; top: 0; bottom: 0; right: 4px; display: flex; align-items: center; color: #ffffff; font-weight: 300; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.vt-sl-star path { fill: none; stroke: rgba(255,255,255,0.5); }
-.vt-sl-star.on path { fill: #aa88ff; stroke: #aa88ff; }
-.vt-sl-folder path { fill: none; stroke: rgba(255,255,255,0.3); stroke-width: 1.4; }
-.vt-sl-folder.add path { stroke-dasharray: 3 2; }
-.vt-sl-x { position: absolute; right: 8px; top: 0; bottom: 0; display: flex; align-items: center; justify-content: center; }
-.vt-sl-x svg { width: 70%; height: 70%; } .vt-sl-x path { stroke: #848789; stroke-width: 0.06; stroke-linecap: round; }
-.vt-sl-x:hover path { stroke: #aaacad; }
-
-/* The preset browser (PresetBrowser.tsx), as s0e shows it. */
-.vt-pb { position: absolute; z-index: 20; outline: none; }
-.vt-pb > div { position: absolute; }
-.vt-pb-info, .vt-pb-search { background: #4c4f52; border-radius: 4px; }
-.vt-pb-info > *, .vt-pb-search > * { position: absolute; }
-.vt-pb-name { display: flex; align-items: center; color: #ffffff; font-size: 16px; font-weight: 300; white-space: nowrap; overflow: hidden; }
-.vt-pb-author { display: flex; align-items: center; color: #ffffff; font-size: 11px; font-weight: 300; }
-.vt-pb-name.empty, .vt-pb-author.empty { color: #6c6e70; }
-.vt-pb-rule { background: rgba(255,255,255,0.133); }
-.vt-pb-comments { background: #2c3033; border-radius: 6px; padding: 6px 8px; box-sizing: border-box; color: #d3d6d6; font-size: 9px; font-weight: 300; white-space: pre-wrap; overflow-y: auto; }
-.vt-pb-input { background: #2c3033; border: 0; border-radius: 6px; padding: 0 6px; box-sizing: border-box; color: #ffffff; font: inherit; font-size: 11px; font-weight: 300; outline: none; }
-.vt-pb-input::placeholder { color: #8a8c8d; }
-.vt-pb-style { background: #2c3033; border: 0; border-radius: 6px; color: #848789; font: inherit; font-size: 7.5px; font-weight: 300; cursor: pointer; padding: 0; }
-.vt-pb-style:hover { color: #aaacad; } .vt-pb-style.on { color: #aa88ff; }
-.vt-pb-search .vt-sl { background: #262a2e; border-radius: 4px; }
-.vt-pb-list { background: #262a2e; border-radius: 4px; overflow: hidden; display: flex; flex-direction: column; }
-.vt-pb-head { position: relative; flex: none; background: #3e4245; }
-.vt-pb-col { position: absolute; top: 0; bottom: 0; display: flex; align-items: center; padding-left: 10.6px; box-sizing: border-box; color: #ffffff; font-size: 11px; font-weight: 300; cursor: pointer; border-right: 0.5px solid rgba(255,255,255,0.133); }
-.vt-pb-col.star { justify-content: center; padding: 0; }
-.vt-pb-col.date { justify-content: flex-end; padding-right: 10.6px; border-right: 0; border-left: 0.5px solid rgba(255,255,255,0.133); }
-.vt-pb-col.style, .vt-pb-col.name { }
-.vt-pb-col.author { border-right: 0; }
-.vt-pb-col.star .vt-sl-star path { fill: #ffffff; stroke: #ffffff; }
-.vt-pb-arrow { position: absolute; left: 4px; top: 7px; border-left: 3.5px solid transparent; border-right: 3.5px solid transparent; border-top: 4px solid #ffffff; }
-.vt-pb-col.date .vt-pb-arrow { left: 7px; }
-.vt-pb-arrow.up { border-top: 0; border-bottom: 4px solid #ffffff; }
-.vt-pb-rows { position: relative; flex: 1; overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.133) transparent; }
-.vt-pb-row { position: relative; cursor: pointer; }
-.vt-pb-row.sel { background: #3d3360; }
-.vt-pb-row.hover::after { content: ''; position: absolute; inset: 0; background: rgba(255,255,255,0.133); pointer-events: none; }
-.vt-pb-cell { position: absolute; top: 0; bottom: 0; display: flex; align-items: center; color: #ffffff; font-size: 10.6px; font-weight: 300; white-space: nowrap; overflow: hidden; }
-.vt-pb-cell.star { justify-content: center; }
-.vt-pb-cell.date { justify-content: flex-end; }
-.vt-pb-rename { position: absolute; top: 1px; bottom: 1px; background: #2c3033; border: 0; color: #ffffff; font: inherit; font-size: 10.6px; font-weight: 300; padding: 0 6px; outline: none; }
-
-/* Overlays (SaveSection, DeleteSection): the Overlays skin over everything. */
-.vt-overlay { position: absolute; inset: 0; z-index: 70; background: rgba(17,17,17,0.733); display: flex; align-items: center; justify-content: center; }
-.vt-ovbox { position: relative; background: #3e4245; border-radius: 4px; }
-.vt-ovbox > * { position: absolute; }
-.vt-ovtext { left: 17px; right: 17px; height: 15px; display: flex; align-items: center; justify-content: center; color: #d3d6d6; font-size: 10.4px; font-weight: 300; }
-.vt-uibtn { border: 0; border-radius: 4px; background: #848789; color: #111111; font: inherit; font-size: 10.4px; cursor: pointer; padding: 0; }
-.vt-uibtn:hover { background: #939699; } .vt-uibtn:active { background: #606265; }
-.vt-uibtn.primary { background: #aa88ff; } .vt-uibtn.primary:hover { background: #ba9fff; } .vt-uibtn.primary:active { background: #906de9; }
-.vt-savelbl { display: flex; align-items: center; justify-content: flex-end; color: #d3d6d6; font-size: 10.4px; font-weight: 300; }
-.vt-saveedit { background: #2c3033; border: 1px solid transparent; border-radius: 4px; color: #ffffff; font: inherit; font-size: 15.4px; font-weight: 300; padding: 0 6px; box-sizing: border-box; outline: none; }
-.vt-saveedit.area { font-size: 11px; padding: 6px; resize: none; }
-.vt-saveedit::placeholder { color: #75787a; }
-
-/* HeaderSection's temporary tab. */
-.vt-temptab { position: absolute; display: flex; align-items: center; gap: 0; color: #d3d6d6; font-size: 11px; font-weight: 300; letter-spacing: 0.2px; }
-.vt-tempx { width: 24px; height: 24px; margin: 0 4px 0 6px; cursor: pointer; }
-.vt-tempx path { stroke: #848789; stroke-width: 0.09; stroke-linecap: round; }
-.vt-tempx:hover path { stroke: #aaacad; }
-
-/* PopupBrowser (PopupBrowser.tsx): Popup Browser skin (s4e, s1f, s1j). */
-.vt-popclose { position: absolute; z-index: 60; }
-.vt-popbrowser { position: absolute; z-index: 61; background: #262a2e; border-radius: 4px; box-shadow: 0 0 0 0.5px #848789; }
-.vt-popbrowser > * { position: absolute; }
-.vt-popsearch { background: #14181b; border: 0; border-radius: 4px; padding: 0 6px; box-sizing: border-box; color: #ffffff; font: inherit; font-size: 9px; font-weight: 300; outline: none; }
-.vt-popsearch::placeholder { color: #8a8c8d; }
-.vt-popx { cursor: pointer; } .vt-popx path { stroke: #848789; stroke-width: 0.09; stroke-linecap: round; } .vt-popx:hover path { stroke: #aaacad; }
-.vt-popdiv { background: #43464a; }
-.vt-popbrowser .vt-sl-row.sel { background: #a789f0; }
-
-/* Wavetable3d's import overlay while audio is dragged over the display. */
-.vt-wtdrop { position: absolute; inset: 0; background: rgba(29,33,37,0.667); pointer-events: none; z-index: 4; border-radius: inherit; }
-.vt-wtdrop span { position: absolute; left: 0; right: 0; height: 50%; display: flex; align-items: center; justify-content: center; color: #8e9092; font-size: 8.9px; font-weight: 300; letter-spacing: 0.3px; }
-.vt-wtdrop span.on { color: #ffffff; }
-
-/* BankExporter's ContentList (BankExporter.tsx). */
-.vt-cl { position: absolute; background: #262a2e; border-radius: 4px; overflow: hidden; display: flex; flex-direction: column; }
-.vt-cl-head { position: relative; flex: none; background: #3e4245; }
-.vt-cl-head span, .vt-cl-row span { position: absolute; top: 0; bottom: 0; display: flex; align-items: center; color: #ffffff; font-size: 10px; font-weight: 300; white-space: nowrap; overflow: hidden; }
-.vt-cl-head span { font-weight: 400; }
-.vt-cl-head .date, .vt-cl-row .date { justify-content: flex-end; }
-.vt-cl-rows { position: relative; flex: 1; overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.133) transparent; }
-.vt-cl-row { position: relative; cursor: pointer; }
-.vt-cl-row:hover::after { content: ''; position: absolute; inset: 0; background: rgba(255,255,255,0.133); pointer-events: none; }
-.vt-cl-add { position: absolute; top: 50%; transform: translateY(-50%); }
-.vt-cl-add circle, .vt-cl-add path { fill: none; stroke: rgba(255,255,255,0.133); stroke-width: 0.08; }
-.vt-cl-row.on .vt-cl-add circle, .vt-cl-row.on .vt-cl-add path { stroke: #aa88ff; }
-.vt-uibtn.off { background: #606265; cursor: default; }
-.vt-bank > input, .vt-bank > button { position: absolute; }
+.vt-ktdiv { display: inline-block; width: 1px; height: 9px; margin: 0 3px; vertical-align: middle; background: var(--sk-lighten-screen); }
 
 /* Embedded parts (VitalSim parts): each section shown on its own, the gaps in the window colour. */
 .vt-partsview .vt-root { border-radius: 6px; }

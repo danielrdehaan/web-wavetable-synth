@@ -11,12 +11,15 @@ import { FilterIcon, filterMode, FilterModelSelector } from './filterUi'
 import { useVital, type MenuItem } from './ctx'
 import { distort, eqDb, flangerDb, over, phaserDb, PX, reverbEqDb } from './fxMath'
 import { R, useControlMenu, useDrag, useStepWheel, useWheel, type Rect } from './hooks'
+import { sk, useSkinColors, useSkinValues } from './skin'
 import { filterDb } from './draw'
 import { COMP_BANDS, DELAY_STYLES, DIST_FILTER_ORDER, DIST_TYPES, DIST_TYPES_SHORT, FREQ_SYNC, PARAMS, shown, SYNCED_FREQ } from './params'
 
 // The EFFECTS page's nine panels, measured from the capture (s6a–s6c): every panel is 193.8 tall,
 // x from 344.4 (its strip) to 1131.2 in the 2000-wide frame. Positions below are frame x (shifted by
 // the panel's left edge, PX) and y from the panel's top; R() halves them.
+// Colours come from the skin: Panel marks each panel as its effect's skin section, so sk('Widget Primary 1')
+// inside it is that section's (the knobs' Rotary Arc too, from controls.tsx).
 
 const B = (x0: number, y0: number, x1: number, y1: number): Rect => [x0 - PX, y0, x1 - PX, y1]
 type Col = readonly [number, number]
@@ -26,12 +29,18 @@ const S1 = 67.4, S2 = 161.2, K1 = 36.4, K2 = 129.6, KD = 55
 // Columns: three on the left, two on the right (the panels share them).
 const CA: Col = [397.9, 470.8], CB: Col = [479.2, 552.8], CC: Col = [561.1, 634.0], CD: Col = [887.5, 1001.4], CE: Col = [1009.7, 1123.6]
 const EA: Col = [397.9, 511.8], EB: Col = [520.1, 634.7], EC: Col = [643.1, 756.9]
-const GREY = '#8b8e91'
+/** Stage px per Vital pt (the 1000-px stage draws Vital's 1440-pt window). */
+const SCALE = 1000 / 1440
+/** Widget Line Width as an SVG stroke width, in drawing units of `px` per stage px. */
+const lineWidth = (px: number) => `calc(var(--sk-widget-line-width) * ${+(SCALE * px).toFixed(5)})`
+/** A fill colour at the top of a display's fill, faded by Widget Fill Fade toward the fill centre. */
+const FADE = { stopOpacity: 'calc(1 - var(--sk-widget-fill-fade))' }
 
-/** A knob in a column, with its pill: `row` 1 (top) or 2 (bottom). */
-function K({ p, col, row, color, label, dim, colorDim, bipolar }: { p: string; col: Col; row: 1 | 2; color: string; label: string; dim?: boolean; colorDim?: boolean; bipolar?: boolean }) {
+/** A knob in a column, with its pill: `row` 1 (top) or 2 (bottom). Its arc is the section's Rotary Arc;
+ *  `colorDim` (the distortion's filter knobs with no filter) draws it in Rotary Arc Disabled. */
+function K({ p, col, row, label, dim, colorDim, bipolar }: { p: string; col: Col; row: 1 | 2; label: string; dim?: boolean; colorDim?: boolean; bipolar?: boolean }) {
   const cy = row === 1 ? K1 : K2, s = row === 1 ? S1 : S2, b = row === 1 ? Y1[1] : Y2[1]
-  return <Knob p={p} x={(col[0] + col[1]) / 2 - PX} y={cy} d={KD} color={colorDim ? GREY : color} dim={dim} bipolar={bipolar} label={label} labelAt={B(col[0], s, col[1], b + 0.7)} />
+  return <Knob p={p} x={(col[0] + col[1]) / 2 - PX} y={cy} d={KD} color={colorDim ? sk('Rotary Arc Disabled') : undefined} dim={dim} bipolar={bipolar} label={label} labelAt={B(col[0], s, col[1], b + 0.7)} />
 }
 
 /** A value box with its label strip (VOICES, MODE, TYPE …). */
@@ -120,16 +129,17 @@ function Screen({ at, children, className = '', drop, overlay, ...rest }: {
 const pathOf = (pts: [number, number][]) => pts.map(([x, y], i) => `${i ? 'L' : 'M'} ${x.toFixed(1)} ${y.toFixed(1)}`).join(' ')
 const v0 = (api: ReturnType<typeof useVital>, p: string) => api.get(p) ?? PARAMS[p]?.def ?? 0
 
-/** A response curve across a display: `fy(semitone)` → y; filled to the bottom. */
-function Curve({ w, h, fy, color, fill = true, from = 8, to = 136, n = 140, alpha = [0.6, 0.45] }: { w: number; h: number; fy: (f: number) => number; color: string; fill?: boolean; from?: number; to?: number; n?: number; alpha?: [number, number] }) {
+/** A response curve across a display (without the engine): `fy(semitone)` → y; filled to the bottom.
+ *  `color` is a CSS colour (a skin variable). */
+function Curve({ w, h, fy, color = sk('Widget Primary 1'), fill = true, from = 8, to = 136, n = 140, alpha = [0.6, 0.45] }: { w: number; h: number; fy: (f: number) => number; color?: string; fill?: boolean; from?: number; to?: number; n?: number; alpha?: [number, number] }) {
   const pts: [number, number][] = Array.from({ length: n + 1 }, (_, k) => { const f = from + (k / n) * (to - from); return [(k / n) * w, Math.max(-2, Math.min(h + 2, fy(f)))] })
   const d = pathOf(pts)
-  const id = `g${color.slice(1)}${Math.round(alpha[0] * 100)}`
+  const id = useId()
   return (
     <>
-      {fill && <defs><linearGradient id={id} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={over(color, alpha[0])} /><stop offset="1" stopColor={over(color, alpha[1])} /></linearGradient></defs>}
+      {fill && <defs><linearGradient id={id} x1="0" y1="0" x2="0" y2="1"><stop offset="0" style={{ stopColor: over(color, alpha[0]) }} /><stop offset="1" style={{ stopColor: over(color, alpha[1]) }} /></linearGradient></defs>}
       {fill && <path d={`${d} L ${w} ${h + 2} L 0 ${h + 2} Z`} fill={`url(#${id})`} />}
-      <path d={d} fill="none" stroke={color} strokeWidth={3} strokeLinejoin="round" />
+      <path d={d} fill="none" style={{ stroke: color }} strokeWidth={3} strokeLinejoin="round" />
     </>
   )
 }
@@ -144,30 +154,30 @@ function useFxLanes(id: string): [number, number] {
   return lanes ?? [base, base]
 }
 
-const FILL_FADE = 0.3 // Widget Fill Fade
-const DISABLED = { line: '#666666', fill: 'rgba(102,102,102,0.13)' } // Widget Primary / Secondary Disabled
+const LEFT = { line: sk('Widget Primary 1'), fill: sk('Widget Secondary 1') }
+const RIGHT = { line: sk('Widget Primary 2'), fill: sk('Widget Secondary 2') }
+const DISABLED = { line: sk('Widget Primary Disabled'), fill: sk('Widget Secondary Disabled') }
 
 /** A display's two channels as its OpenGlLineRenderer draws them: the right (`d[1]`, Widget Primary /
- *  Secondary 2) and then the left over it (`d[0]`, … 1), each line filled to `close` with the fill faded
- *  by Widget Fill Fade away from the line. Off, only the left, in the disabled colours. */
-function Stereo({ d, close, line, fill, line2 = line, fill2 = fill, on, width, offLine = DISABLED.line, leftFirst = false }: {
-  d: [string, string]; close: string; line: string; fill: string; line2?: string; fill2?: string; on: boolean; width: number
-  /** The section's Widget Primary Disabled. */
-  offLine?: string
+ *  Secondary 2) and then the left over it (`d[0]`, … 1), each line Widget Line Width wide (in drawing
+ *  units of `px` per stage px) and filled to `close` with the fill faded by Widget Fill Fade away from the
+ *  line. Off, only the left, in the disabled colours. */
+function Stereo({ d, close, on, px, leftFirst = false }: {
+  d: [string, string]; close: string; on: boolean; px: number
   /** DelayFilterViewer draws the left first and the right over it, both channels even while off. */
   leftFirst?: boolean
 }) {
   const id = useId()
-  const layer = (path: string, stroke: string, f: string, k: string) => (
+  const layer = (path: string, c: { line: string; fill: string }, k: string) => (
     <g key={k}>
-      <defs><linearGradient id={id + k} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={f} /><stop offset="1" stopColor={f} stopOpacity={1 - FILL_FADE} /></linearGradient></defs>
+      <defs><linearGradient id={id + k} x1="0" y1="0" x2="0" y2="1"><stop offset="0" style={{ stopColor: c.fill }} /><stop offset="1" style={{ stopColor: c.fill, ...FADE }} /></linearGradient></defs>
       <path d={`${path}${close}`} fill={`url(#${id + k})`} />
-      <path d={path} fill="none" stroke={stroke} strokeWidth={width} strokeLinejoin="round" />
+      <path d={path} fill="none" style={{ stroke: c.line, strokeWidth: lineWidth(px) }} strokeLinejoin="round" />
     </g>
   )
-  if (!on && !leftFirst) return layer(d[0], offLine, DISABLED.fill, 'l')
-  const left = on ? layer(d[0], line, fill, 'l') : layer(d[0], offLine, DISABLED.fill, 'l')
-  const right = on ? layer(d[1], line2, fill2, 'r') : layer(d[1], offLine, DISABLED.fill, 'r')
+  if (!on && !leftFirst) return layer(d[0], DISABLED, 'l')
+  const left = layer(d[0], on ? LEFT : DISABLED, 'l')
+  const right = layer(d[1], on ? RIGHT : DISABLED, 'r')
   return <>{leftFirst ? [left, right] : [right, left]}</>
 }
 
@@ -175,7 +185,7 @@ function Stereo({ d, close, line, fill, line2 = line, fill2 = fill, on, width, o
  *  around the cutoff, ± spread × 8 octaves, gain ratio(high − low) + 1, MIDI 8–132 over −18…+6 dB,
  *  filled to the bottom. Drag sideways for the cutoff, up and down for the spread (full range per
  *  width / height). */
-function BandFilterScreen({ at, cutoff, spread, color, fill, on }: { at: Rect; cutoff: string; spread: string; color: string; fill: string; on: boolean }) {
+function BandFilterScreen({ at, cutoff, spread, on }: { at: Rect; cutoff: string; spread: string; on: boolean }) {
   const api = useVital()
   const w = at[2] - at[0], h = at[3] - at[1]
   const c = useFxLanes(cutoff), sp = useFxLanes(spread)
@@ -202,14 +212,16 @@ function BandFilterScreen({ at, cutoff, spread, color, fill, on }: { at: Rect; c
   }
   return (
     <Screen at={at} drop={cutoff} {...drag}>
-      <Stereo d={[lane(0), lane(1)]} close={` L ${w} ${h + 2} L 0 ${h + 2} Z`} line={color} fill={fill} on={on} width={2 * SCALE * 2} offLine="#4c4f52" leftFirst />
+      <Stereo d={[lane(0), lane(1)]} close={` L ${w} ${h + 2} L 0 ${h + 2} Z`} on={on} px={2} leftFirst />
     </Screen>
   )
 }
 
 /** The chorus voices (ChorusViewer): one bar per delay line at 1 / chorus_delaysN over 0…70 ms, the middle
- *  half of the height, bar width 0.3 of a slot, additive; they move with the chorus's modulation. */
-function ChorusBars({ w, h, color, on }: { w: number; h: number; color: string; on: boolean }) {
+ *  half of the height, bar width 0.3 of a slot, additive, in Widget Secondary 1 at alpha a + (1 − a) a
+ *  (0.64 for the skins' 0x66; drawn here opaque over Widget Background) or Widget Secondary Disabled off;
+ *  they move with the chorus's modulation. */
+function ChorusBars({ w, h, on }: { w: number; h: number; on: boolean }) {
   const api = useVital()
   const lanes = [useStatusLanes('chorus_delays1'), useStatusLanes('chorus_delays2'), useStatusLanes('chorus_delays3'), useStatusLanes('chorus_delays4')]
   const voices = Math.round(v0(api, 'chorus_voices')) * 4
@@ -219,19 +231,19 @@ function ChorusBars({ w, h, color, on }: { w: number; h: number; color: string; 
     const f = lanes[Math.floor(i / 4)]?.[i % 4]
     if (f === undefined || !Number.isFinite(f) || f <= 0) continue
     const x = ((1 / f) / 0.07) * w
-    bars.push(<rect key={i} x={x - barW / 2} y={h * 0.25} width={barW} height={h * 0.5} fill={on ? over(color, 0.64) : 'rgba(102,102,102,0.13)'} style={{ mixBlendMode: 'plus-lighter' }} />)
+    bars.push(<rect key={i} x={x - barW / 2} y={h * 0.25} width={barW} height={h * 0.5} style={{ fill: on ? over(sk('Widget Secondary 1'), 0.64) : sk('Widget Secondary Disabled'), mixBlendMode: 'plus-lighter' }} />)
   }
   return <>{bars}</>
 }
 
-/** The strip, power button and vertical name every panel has. */
-export function Panel({ fx, top, children }: { fx: { key: string; label: string; on: string; color: string }; top: number; children: ReactNode }) {
+/** The strip, power button and vertical name every panel has; the panel is its effect's skin section. */
+export function Panel({ fx, top, children }: { fx: { key: string; label: string; on: string; skin: string }; top: number; children: ReactNode }) {
   const api = useVital()
   const on = (api.v[fx.on] ?? 0) >= 0.5
   return (
-    <div className={`vfx-panel fx-${fx.key}`} style={{ ...R(0, top, 1131.2 - PX, top + 193.8) }}>
+    <div className={`vfx-panel fx-${fx.key}${on ? ' on' : ''}`} data-skin={fx.skin} style={{ ...R(0, top, 1131.2 - PX, top + 193.8) }}>
       <i className="vfx-strip" />
-      <span className="vt-dot vfx-pdot" style={{ left: 23.6 / 2 - 5.5, top: 23.1 / 2 - 5.5, background: on ? fx.color : undefined }}
+      <span className="vt-dot vfx-pdot" style={{ left: 23.6 / 2 - 5.5, top: 23.1 / 2 - 5.5 }}
         onClick={(e) => { e.stopPropagation(); api.checkpoint(); api.set(fx.on, on ? 0 : 1) }} title={`${fx.label} on/off`} />
       <span className="vfx-vlabel">{fx.label}</span>
       {children}
@@ -240,7 +252,7 @@ export function Panel({ fx, top, children }: { fx: { key: string; label: string;
 }
 
 // ——— Chorus ———
-export function ChorusPanel({ color }: { color: string }) {
+export function ChorusPanel() {
   const api = useVital()
   const { engine } = useEngine()
   const on = (api.v.chorus_on ?? 0) >= 0.5
@@ -265,17 +277,17 @@ export function ChorusPanel({ color }: { color: string }) {
       <TempoBox pre="chorus" at={[519.4, Y1[0], 634.0, Y1[1]]} />
       <Screen at={[641.7, Y1[0], 879.2, Y1[1]]}>
         {engine
-          ? <ChorusBars w={W} h={H} color={color} on={on} />
-          : bars.map((b, i) => <rect key={i} x={b.x} y={H * 0.255} width={b.w} height={H * 0.48} rx={b.w / 2.6} fill={over(color, 0.6)} stroke={over(color, 0.35)} strokeWidth={1.5} opacity={0.92} />)}
+          ? <ChorusBars w={W} h={H} on={on} />
+          : bars.map((b, i) => <rect key={i} x={b.x} y={H * 0.255} width={b.w} height={H * 0.48} rx={b.w / 2.6} style={{ fill: over(sk('Widget Primary 1'), 0.6), stroke: over(sk('Widget Primary 1'), 0.35) }} strokeWidth={1.5} opacity={0.92} />)}
       </Screen>
-      <BandFilterScreen at={[641.7, Y2[0], 879.2, Y2[1]]} cutoff="chorus_cutoff" spread="chorus_spread" color={color} fill="rgba(159,136,255,0.4)" on={on} />
-      <K p="chorus_feedback" col={CD} row={1} color={color} label="FEEDBACK" />
-      <K p="chorus_dry_wet" col={CE} row={1} color={color} label="MIX" />
-      <K p="chorus_mod_depth" col={CA} row={2} color={color} label="DEPTH" />
-      <K p="chorus_delay_1" col={CB} row={2} color={color} label="DELAY 1" />
-      <K p="chorus_delay_2" col={CC} row={2} color={color} label="DELAY 2" />
-      <K p="chorus_cutoff" col={CD} row={2} color={color} label="CUTOFF" />
-      <K p="chorus_spread" col={CE} row={2} color={color} label="SPREAD" />
+      <BandFilterScreen at={[641.7, Y2[0], 879.2, Y2[1]]} cutoff="chorus_cutoff" spread="chorus_spread" on={on} />
+      <K p="chorus_feedback" col={CD} row={1} label="FEEDBACK" />
+      <K p="chorus_dry_wet" col={CE} row={1} label="MIX" />
+      <K p="chorus_mod_depth" col={CA} row={2} label="DEPTH" />
+      <K p="chorus_delay_1" col={CB} row={2} label="DELAY 1" />
+      <K p="chorus_delay_2" col={CC} row={2} label="DELAY 2" />
+      <K p="chorus_cutoff" col={CD} row={2} label="CUTOFF" />
+      <K p="chorus_spread" col={CE} row={2} label="SPREAD" />
     </>
   )
 }
@@ -285,8 +297,6 @@ const BANDS = ['low', 'band', 'high'] as const
 type CompPoint = 'upper_threshold' | 'lower_threshold' | 'upper_ratio' | 'lower_ratio'
 // CompressorEditor constants: kCompressorAreaBuffer, kMinDb, kDbLineSections, kRatioDbLines, kGrabRadius (pt).
 const COMP_BUFFER = 0.05, COMP_MIN_DB = -80, COMP_LINE_SECTIONS = 8, COMP_RATIO_LINES = 14, COMP_GRAB = 8
-/** Stage px per Vital pt (the 1000-px stage draws Vital's 1440-pt window). */
-const SCALE = 1000 / 1440
 /** Which bands each MODE uses: Multiband all three, Low Band = low + band, High Band = band + high, Single = band. */
 const BANDS_ON = [[1, 1, 1], [1, 1, 0], [0, 1, 1], [0, 1, 0]]
 /** The multiband compressor display, drawn and edited as Vital's CompressorEditor (compressor_editor.cpp):
@@ -369,12 +379,13 @@ function CompressorScreen() {
   }
 
   const regions: ReactNode[] = [], lines: ReactNode[] = [], meters: ReactNode[] = []
-  const regionColor = (ratio: number) => (!on ? 'rgba(255,255,255,0.067)' : ratio > 0 ? '#10735b' : ratio < 0 ? '#0b4039' : 'rgba(255,255,255,0.067)')
+  // getColorForRatio: Widget Secondary 1 above 0, Secondary 2 below, Secondary Disabled at 0 or off.
+  const regionColor = (ratio: number) => sk(!on || ratio === 0 ? 'Widget Secondary Disabled' : ratio > 0 ? 'Widget Secondary 1' : 'Widget Secondary 2')
   cols.forEach(([x0, x1], band) => {
     if (x1 <= 0) return
     const tu = val(band, 'upper_threshold'), tl = val(band, 'lower_threshold'), ru = val(band, 'upper_ratio'), rl = val(band, 'lower_ratio')
-    regions.push(<rect key={`u${band}`} x={x0} y={0} width={x1 - x0} height={yForDb(tu)} fill={regionColor(ru)} />)
-    regions.push(<rect key={`l${band}`} x={x0} y={yForDb(tl)} width={x1 - x0} height={h - yForDb(tl)} fill={regionColor(-rl)} />)
+    regions.push(<rect key={`u${band}`} x={x0} y={0} width={x1 - x0} height={yForDb(tu)} style={{ fill: regionColor(ru) }} />)
+    regions.push(<rect key={`l${band}`} x={x0} y={yForDb(tl)} width={x1 - x0} height={h - yForDb(tl)} style={{ fill: regionColor(-rl) }} />)
     for (const [upper, threshold, ratio] of [[true, tu, ru], [false, tl, rl]] as const) {
       // setRatioLines: start on the 10 dB grid beyond the threshold, compress each line toward it.
       const position = (COMP_LINE_SECTIONS * (threshold - COMP_MIN_DB)) / -COMP_MIN_DB
@@ -384,23 +395,24 @@ function CompressorScreen() {
       for (let i = 0; i < COMP_RATIO_LINES; i++) {
         const out = db + (threshold - db) * ratio
         lines.push(<rect key={`${band}${upper}${i}`} x={x0} y={yForDb(out) - 2 * SCALE} width={x1 - x0} height={4 * SCALE}
-          fill="#ffffff" opacity={Math.min(1, ((COMP_RATIO_LINES - i) * (hot ? 5 : 2.5)) / COMP_RATIO_LINES) * 0.133} />)
+          style={{ fill: sk('Lighten Screen') }} opacity={Math.min(1, ((COMP_RATIO_LINES - i) * (hot ? 5 : 2.5)) / COMP_RATIO_LINES)} />)
         db += step
       }
     }
-    // Meters: output bars from the level down, 2 px input lines; left lane left of centre, right lane right.
+    // Meters: output bars from the level down (Widget Primary 1), 2 px input lines (Primary 2); left lane
+    // left of centre, right lane right.
     const barW = 0.2 * section * w, mid = (x0 + x1) / 2
     const [input, output] = levels[band]
     ;[0, 1].forEach((lane) => {
       const x = lane ? mid + SCALE : mid - barW
       const dbOf = (ms: number | undefined) => (ms === undefined || !Number.isFinite(ms) || ms <= 0 ? COMP_MIN_DB : 20 * Math.log10(Math.sqrt(ms)))
       const yo = yForDb(dbOf(output?.[lane])), yi = yForDb(dbOf(input?.[lane]))
-      meters.push(<rect key={`o${band}${lane}`} x={x} y={yo} width={barW} height={h - yo} fill="#1de9b6" />)
-      meters.push(<rect key={`i${band}${lane}`} x={x} y={yi - SCALE} width={barW} height={2 * SCALE} fill="#ffffff" />)
+      meters.push(<rect key={`o${band}${lane}`} x={x} y={yo} width={barW} height={h - yo} style={{ fill: sk('Widget Primary 1') }} />)
+      meters.push(<rect key={`i${band}${lane}`} x={x} y={yi - SCALE} width={barW} height={2 * SCALE} style={{ fill: sk('Widget Primary 2') }} />)
     })
   })
   const hoverLine = hover && hover.what.endsWith('threshold') && cols[hover.band][1] > 0
-    ? <rect x={cols[hover.band][0]} y={yForDb(val(hover.band, hover.what)) - SCALE} width={cols[hover.band][1] - cols[hover.band][0]} height={2 * SCALE} fill="#ffffff" />
+    ? <rect x={cols[hover.band][0]} y={yForDb(val(hover.band, hover.what)) - SCALE} width={cols[hover.band][1] - cols[hover.band][0]} height={2 * SCALE} style={{ fill: sk('Widget Center Line') }} />
     : null
 
   return (
@@ -417,7 +429,7 @@ function CompressorScreen() {
       onPointerUp={() => { last.current = null; setPopup(null) }}
       onPointerLeave={() => { if (last.current === null) setHover(null) }}
       onDoubleClick={(e) => { const p = local(e), hit = hoverAt(p.x, p.y); if (hit?.what.endsWith('ratio')) { api.checkpoint(); api.set(`compressor_${BANDS[hit.band]}_${hit.what}`, 0) } }}>
-      {Array.from({ length: COMP_LINE_SECTIONS - 1 }, (_, i) => <rect key={i} x={0} y={(h * (i + 1)) / COMP_LINE_SECTIONS} width={w} height={SCALE} fill="rgba(255,255,255,0.133)" />)}
+      {Array.from({ length: COMP_LINE_SECTIONS - 1 }, (_, i) => <rect key={i} x={0} y={(h * (i + 1)) / COMP_LINE_SECTIONS} width={w} height={SCALE} style={{ fill: sk('Lighten Screen') }} />)}
       {regions}
       {lines}
       {hoverLine}
@@ -427,19 +439,19 @@ function CompressorScreen() {
   )
 }
 
-export function CompressorPanel({ color }: { color: string }) {
+export function CompressorPanel() {
   const api = useVital()
   const mode = Math.round(v0(api, 'compressor_enabled_bands'))
   return (
     <>
       <MenuBox p="compressor_enabled_bands" at={[397.9, Y1[0], 552.8, Y1[1]]} split={S1} label="MODE" names={COMP_BANDS} short={['Multiband', 'Low Band', 'High Band', 'Single']} />
-      <K p="compressor_mix" col={CC} row={1} color={color} label="MIX" />
-      <K p="compressor_low_gain" col={CA} row={2} color={color} label="LOW" dim={!BANDS_ON[mode][0]} />
-      <K p="compressor_band_gain" col={CB} row={2} color={color} label="BAND" dim={!BANDS_ON[mode][1]} />
-      <K p="compressor_high_gain" col={CC} row={2} color={color} label="HIGH" dim={!BANDS_ON[mode][2]} />
+      <K p="compressor_mix" col={CC} row={1} label="MIX" />
+      <K p="compressor_low_gain" col={CA} row={2} label="LOW" dim={!BANDS_ON[mode][0]} />
+      <K p="compressor_band_gain" col={CB} row={2} label="BAND" dim={!BANDS_ON[mode][1]} />
+      <K p="compressor_high_gain" col={CC} row={2} label="HIGH" dim={!BANDS_ON[mode][2]} />
       <CompressorScreen />
-      <K p="compressor_attack" col={CE} row={1} color={color} label="ATTACK" />
-      <K p="compressor_release" col={CE} row={2} color={color} label="RELEASE" />
+      <K p="compressor_attack" col={CE} row={1} label="ATTACK" />
+      <K p="compressor_release" col={CE} row={2} label="RELEASE" />
     </>
   )
 }
@@ -449,7 +461,7 @@ export function CompressorPanel({ color }: { color: string }) {
  *  edge, the first the dry level and then the wet level decaying by the feedback, the left channel up from
  *  the centre and the right down (ping-pong styles interleave them). Tempo modes ignore the BPM, as
  *  Vital's display does. Drag up and down for the feedback. */
-function DelayTaps({ color }: { color: string }) {
+function DelayTaps() {
   const api = useVital()
   const at: Rect = [641.7, Y1[0], 879.2, Y1[1]]
   const w = at[2] - at[0], h = at[3] - at[1]
@@ -483,11 +495,11 @@ function DelayTaps({ color }: { color: string }) {
     if (style === 2) { if (index) x -= other; even = inc + other; odd = even }
     else if (style === 3) { if (index === 0) { odd = other + inc; even = other } else { odd = inc; even = other + inc } }
     const barW = (Math.min(1, (N * inc) / 2) * 2) / N
-    const fill = on ? color : '#4c4f52' // Delay: Widget Primary 1 and 2 are the same pink
+    const fill = sk(!on ? 'Widget Primary Disabled' : index ? 'Widget Primary 2' : 'Widget Primary 1')
     const toPx = (gx: number) => ((gx + 1) / 2) * w
     const bar = (gx: number, amount: number, k: number) => {
       const top = index ? h / 2 : h / 2 - (amount * h) / 2
-      bars.push(<rect key={`${index}-${k}`} x={toPx(gx) - (barW / 2) * (w / 2)} y={top} width={barW * (w / 2)} height={(amount * h) / 2} fill={fill} />)
+      bars.push(<rect key={`${index}-${k}`} x={toPx(gx) - (barW / 2) * (w / 2)} y={top} width={barW * (w / 2)} height={(amount * h) / 2} style={{ fill }} />)
     }
     bar(-1, dry, 0)
     for (let i = 1; i < N; i++) {
@@ -500,7 +512,7 @@ function DelayTaps({ color }: { color: string }) {
   return <Screen at={at} {...drag}>{bars}</Screen>
 }
 
-export function DelayPanel({ color }: { color: string }) {
+export function DelayPanel() {
   const api = useVital()
   // Every mode but Mono shows the second (aux) tempo control (DelaySection::resizeTempoControls). Leaving
   // Mono copies the main tempo, sync and frequency into it, as the hidden aux controls would otherwise
@@ -521,18 +533,18 @@ export function DelayPanel({ color }: { color: string }) {
         ? <><TempoBox pre="delay" at={[397.9, Y1[0], 512, Y1[1]]} /><TempoBox pre="delay" aux at={[520, Y1[0], 634.0, Y1[1]]} /></>
         : <TempoBox pre="delay" at={[397.9, Y1[0], 634.0, Y1[1]]} />}
       <MenuBox p="delay_style" at={[397.9, Y2[0], 634.0, Y2[1]]} split={S2} label="MODE" names={DELAY_STYLES} onPick={setStyle} />
-      <DelayTaps color={color} />
-      <BandFilterScreen at={[641.7, Y2[0], 879.2, Y2[1]]} cutoff="delay_filter_cutoff" spread="delay_filter_spread" color={color} fill="rgba(255,153,233,0.4)" on={(api.v.delay_on ?? 0) >= 0.5} />
-      <K p="delay_feedback" col={CD} row={1} color={color} label="FEEDBACK" />
-      <K p="delay_dry_wet" col={CE} row={1} color={color} label="MIX" />
-      <K p="delay_filter_cutoff" col={CD} row={2} color={color} label="CUTOFF" />
-      <K p="delay_filter_spread" col={CE} row={2} color={color} label="SPREAD" />
+      <DelayTaps />
+      <BandFilterScreen at={[641.7, Y2[0], 879.2, Y2[1]]} cutoff="delay_filter_cutoff" spread="delay_filter_spread" on={(api.v.delay_on ?? 0) >= 0.5} />
+      <K p="delay_feedback" col={CD} row={1} label="FEEDBACK" />
+      <K p="delay_dry_wet" col={CE} row={1} label="MIX" />
+      <K p="delay_filter_cutoff" col={CD} row={2} label="CUTOFF" />
+      <K p="delay_filter_spread" col={CE} row={2} label="SPREAD" />
     </>
   )
 }
 
 // ——— Distortion ———
-export function DistortionPanel({ color }: { color: string }) {
+export function DistortionPanel() {
   const api = useVital()
   const type = v0(api, 'distortion_type'), drive = v0(api, 'distortion_drive'), mix = v0(api, 'distortion_mix')
   const order = Math.round(v0(api, 'distortion_filter_order'))
@@ -559,20 +571,20 @@ export function DistortionPanel({ color }: { color: string }) {
       <MenuBox p="distortion_filter_order" at={[397.9, Y2[0], 572.2, Y2[1]]} split={S2} label="FILTER" names={DIST_FILTER_ORDER} />
       <Screen at={[581.2, Y1[0], 756.9, Y1[1]]} drop="distortion_drive" {...tdrag}>
         {transfer
-          ? <Stereo d={[transferPath(transfer[0]), transferPath(transfer[1])]} close={` L ${tw} ${th / 2} L 0 ${th / 2} Z`} line={color} fill="rgba(255,82,82,0.4)" on={on} width={4 * SCALE} />
-          : <><path d={`${cd} L ${tw} ${th / 2} L 0 ${th / 2} Z`} fill={on ? over(color, 0.4) : 'rgba(102,102,102,0.13)'} />
-            <path d={cd} fill="none" stroke={on ? color : '#666666'} strokeWidth={3} /></>}
+          ? <Stereo d={[transferPath(transfer[0]), transferPath(transfer[1])]} close={` L ${tw} ${th / 2} L 0 ${th / 2} Z`} on={on} px={2} />
+          : <><path d={`${cd} L ${tw} ${th / 2} L 0 ${th / 2} Z`} style={{ fill: on ? over(LEFT.line, 0.4) : DISABLED.fill }} />
+            <path d={cd} fill="none" style={{ stroke: on ? LEFT.line : DISABLED.line }} strokeWidth={3} /></>}
       </Screen>
       <Screen at={[581.2, Y2[0], 756.9, Y2[1]]} drop={none ? undefined : 'distortion_filter_cutoff'} {...fdrag}>
         {response
-          ? <Stereo d={[responsePath(response[0]), responsePath(response[1])]} close={` L ${tw} ${fh + 2} L 0 ${fh + 2} Z`} line={color} fill="rgba(255,82,82,0.4)" on={on && !none} width={4 * SCALE} />
-          : <Curve w={tw} h={fh} color={none ? '#5d6064' : color} fill={!none} fy={(f) => fh * (0.41 - filterDb(0, 0, cutoff, res, blend, f) * 0.035)} />}
+          ? <Stereo d={[responsePath(response[0]), responsePath(response[1])]} close={` L ${tw} ${fh + 2} L 0 ${fh + 2} Z`} on={on && !none} px={2} />
+          : <Curve w={tw} h={fh} color={none ? DISABLED.line : LEFT.line} fill={!none} fy={(f) => fh * (0.41 - filterDb(0, 0, cutoff, res, blend, f) * 0.035)} />}
       </Screen>
-      <K p="distortion_drive" col={[765.3, 939.6]} row={1} color={color} label="DRIVE" bipolar={false} />
-      <K p="distortion_mix" col={[948.6, 1122.9]} row={1} color={color} label="MIX" />
-      <K p="distortion_filter_cutoff" col={[765.3, 878.5]} row={2} color={color} colorDim={none} label="CUTOFF" />
-      <K p="distortion_filter_resonance" col={[887.5, 1000.7]} row={2} color={color} colorDim={none} label="RESONANCE" />
-      <K p="distortion_filter_blend" col={[1009.7, 1122.9]} row={2} color={color} colorDim={none} label="BLEND" />
+      <K p="distortion_drive" col={[765.3, 939.6]} row={1} label="DRIVE" bipolar={false} />
+      <K p="distortion_mix" col={[948.6, 1122.9]} row={1} label="MIX" />
+      <K p="distortion_filter_cutoff" col={[765.3, 878.5]} row={2} colorDim={none} label="CUTOFF" />
+      <K p="distortion_filter_resonance" col={[887.5, 1000.7]} row={2} colorDim={none} label="RESONANCE" />
+      <K p="distortion_filter_blend" col={[1009.7, 1122.9]} row={2} colorDim={none} label="BLEND" />
     </>
   )
 }
@@ -585,9 +597,27 @@ const EQ_BANDS = ['low', 'band', 'high'] as const
  *  gain = y); the wheel over a node sets that band's resonance. A node's halo shows while dragging. */
 const midiToHz = (m: number) => 440 * 2 ** ((m - 69) / 12)
 const EQ_MIN_FREQ = midiToHz(PARAMS.eq_low_cutoff.min), EQ_MAX_FREQ = midiToHz(PARAMS.eq_low_cutoff.max)
-const EQ_SPECTRUM_SKIN = { line: 'rgba(255,255,255,0.133)', fill: 'rgb(59,62,66)', fillFade: 0.3 }
+/** A resolved skin colour (#rrggbb or rgb[a](…)) as [r, g, b, a]. */
+function rgba(c: string): [number, number, number, number] {
+  if (c.startsWith('#')) {
+    const n = parseInt(c.slice(1, 7), 16)
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255, c.length > 7 ? parseInt(c.slice(7, 9), 16) / 255 : 1]
+  }
+  const m = c.match(/[\d.]+/g)?.map(Number) ?? [0, 0, 0]
+  return [m[0], m[1], m[2], m[3] ?? 1]
+}
 
-function EqScreen({ color, sel, setSel }: { color: string; sel: number; setSel: (b: number) => void }) {
+/** The equalizer's spectrogram colours (EqualizerSection::paintBackground): Lighten Screen lines over a
+ *  fill of Widget Background overlaid with Lighten Screen (opaque), faded by Widget Fill Fade. */
+function useEqSpectrumSkin(ref: React.RefObject<Element | null>) {
+  const c = useSkinColors(ref, ['Lighten Screen', 'Widget Background'] as const)
+  const { 'Widget Fill Fade': fillFade } = useSkinValues(ref, ['Widget Fill Fade'] as const)
+  const l = rgba(c['Lighten Screen']), b = rgba(c['Widget Background'])
+  const mix = [0, 1, 2].map((i) => Math.round(b[i] * (1 - l[3]) + l[i] * l[3]))
+  return { line: `rgba(${l[0]},${l[1]},${l[2]},${l[3]})`, fill: `rgb(${mix.join(',')})`, fillFade }
+}
+
+function EqScreen({ sel, setSel }: { sel: number; setSel: (b: number) => void }) {
   const api = useVital()
   const { engine } = useEngine()
   const at: Rect = [764.6, 8.4, 1123.6, 185.1]
@@ -598,6 +628,7 @@ function EqScreen({ color, sel, setSel }: { color: string; sel: number; setSel: 
   const data = useEqResponse([band(EQ_BANDS[0]), band(EQ_BANDS[1]), band(EQ_BANDS[2])])
   const [dragging, setDragging] = useState<number | null>(null)
   const box = useRef<HTMLDivElement>(null)
+  const spectrumSkin = useEqSpectrumSkin(box)
   const nodeX = (b: string) => ((v(`eq_${b}_cutoff`) - PARAMS[`eq_${b}_cutoff`].min) / (PARAMS[`eq_${b}_cutoff`].max - PARAMS[`eq_${b}_cutoff`].min)) * w
   const nodeY = (b: string) => ((axis.max - v(`eq_${b}_gain`)) / (axis.max - axis.min)) * h
   const local = (e: { clientX: number; clientY: number }) => {
@@ -636,21 +667,21 @@ function EqScreen({ color, sel, setSel }: { color: string; sel: number; setSel: 
           curve (EqualizerSection: Lighten Screen line, Widget Background overlaid with it as the fill). */}
       <SpectrogramGrid group w={w} h={h} minFreq={EQ_MIN_FREQ} maxFreq={EQ_MAX_FREQ} px={2000 / 1440} />
       {engine && (api.v.eq_on ?? 0) >= 0.5 && (
-        <OutputDisplay group w={w} h={h} lineWidth={2 * 2000 / 1440} skin={EQ_SPECTRUM_SKIN}
+        <OutputDisplay group w={w} h={h} lineWidth={2 * 2000 / 1440} skin={spectrumSkin}
           spectrogram={{ id: 2, source: 1, minDb: -50, maxDb: 0, minFreq: EQ_MIN_FREQ, maxFreq: EQ_MAX_FREQ }} />
       )}
       {engine && data
-        ? <EqCurve px={2} data={data} w={w} h={h} axis={axis} line="#fff6e1" fill="rgba(255,246,225,0.2)" on={(api.v.eq_on ?? 0) >= 0.5} />
-        : <Curve w={w} h={h} color={color} fill={false} fy={(f) => h / 2 - (eqDb(f, v) / 20) * (h / 2)} n={180} />}
-      {dragging !== null && <circle cx={nodeX(EQ_BANDS[dragging])} cy={nodeY(EQ_BANDS[dragging])} r={0.18 * h} fill="rgba(255,255,255,0.1)" />}
+        ? <EqCurve px={2} data={data} w={w} h={h} axis={axis} on={(api.v.eq_on ?? 0) >= 0.5} />
+        : <Curve w={w} h={h} fill={false} fy={(f) => h / 2 - (eqDb(f, v) / 20) * (h / 2)} n={180} />}
+      {dragging !== null && <circle cx={nodeX(EQ_BANDS[dragging])} cy={nodeY(EQ_BANDS[dragging])} r={0.18 * h} style={{ fill: sk('Lighten Screen') }} />}
       {EQ_BANDS.map((b, i) => (
-        <circle key={b} cx={nodeX(b)} cy={nodeY(b)} r={0.06 * h} fill={i === sel ? color : 'none'} stroke={color} strokeWidth={i === sel ? 0 : 1} className="vfx-node" />
+        <circle key={b} cx={nodeX(b)} cy={nodeY(b)} r={0.06 * h} style={{ fill: i === sel ? sk('Widget Primary 1') : 'none', stroke: sk('Widget Primary 1') }} strokeWidth={i === sel ? 0 : 1} className="vfx-node" />
       ))}
     </Screen>
   )
 }
 
-export function EqPanel({ color }: { color: string }) {
+export function EqPanel() {
   const api = useVital()
   const sel = (api.ui.eqBand as number) ?? 0
   const setSel = (b: number) => api.setUi({ eqBand: b })
@@ -669,21 +700,21 @@ export function EqPanel({ color }: { color: string }) {
           </Box>
         )
       })}
-      <Box at={B(397.9, 57.3, 756.9, 59.7)} className="vfx-eqtrack"><i style={{ left: `${(sel * 100) / 3}%`, width: '33.3%', background: color }} /></Box>
+      <Box at={B(397.9, 57.3, 756.9, 59.7)} className="vfx-eqtrack"><i style={{ left: `${(sel * 100) / 3}%`, width: '33.3%' }} /></Box>
       {['LOW', 'BAND', 'HIGH'].map((n, i) => (
-        <span key={n} className={`vfx-eqtab${i === sel ? ' on' : ''}`} style={{ ...R(cols[i][0] - PX, 66, cols[i][1] - PX, 94), color: i === sel ? color : undefined }}
+        <span key={n} className={`vfx-eqtab${i === sel ? ' on' : ''}`} style={R(cols[i][0] - PX, 66, cols[i][1] - PX, 94)}
           onClick={(e) => { e.stopPropagation(); setSel(i) }}>{n}</span>
       ))}
-      <K key={`g${band}`} p={`eq_${band}_gain`} col={EA} row={2} color={color} label="GAIN" dim={Math.round(v0(api, `eq_${band}_mode`)) === 1} />
-      <K key={`c${band}`} p={`eq_${band}_cutoff`} col={EB} row={2} color={color} label="CUTOFF" />
-      <K key={`r${band}`} p={`eq_${band}_resonance`} col={EC} row={2} color={color} label="RESONANCE" />
-      <EqScreen color={color} sel={sel} setSel={setSel} />
+      <K key={`g${band}`} p={`eq_${band}_gain`} col={EA} row={2} label="GAIN" dim={Math.round(v0(api, `eq_${band}_mode`)) === 1} />
+      <K key={`c${band}`} p={`eq_${band}_cutoff`} col={EB} row={2} label="CUTOFF" />
+      <K key={`r${band}`} p={`eq_${band}_resonance`} col={EC} row={2} label="RESONANCE" />
+      <EqScreen sel={sel} setSel={setSel} />
     </>
   )
 }
 
 // ——— Filter ———
-export function FilterPanel({ color }: { color: string }) {
+export function FilterPanel() {
   const api = useVital()
   const pre = 'filter_fx'
   const at: Rect = [765.3, 25.4, 1105.3, 167.4]
@@ -704,14 +735,14 @@ export function FilterPanel({ color }: { color: string }) {
   return (
     <>
       <FilterModelSelector pre={pre} at={B(397.9, 8.7, 756.9, 93.4)} className="vt-sel big vfx-fsel" menuAt="below" />
-      <K key={mode.firstKnob} p={`${pre}_${mode.firstKnob}`} col={EA} row={2} color={color} label={mode.label1} />
-      <K p={`${pre}_mix`} col={EB} row={2} color={color} label="MIX" />
-      <K key={mode.secondKnob} p={`${pre}_${mode.secondKnob}`} col={EC} row={2} color={color} label={mode.label2} />
+      <K key={mode.firstKnob} p={`${pre}_${mode.firstKnob}`} col={EA} row={2} label={mode.label1} />
+      <K p={`${pre}_mix`} col={EB} row={2} label="MIX" />
+      <K key={mode.secondKnob} p={`${pre}_${mode.secondKnob}`} col={EC} row={2} label={mode.label2} />
       <FilterIcon icon={mode.left} className="vfx-fic" style={R(771 - PX, 6, 791 - PX, 19)} />
       <FilterIcon icon={mode.right} className="vfx-fic" style={R(1089 - PX, 6, 1109 - PX, 19)} />
       {mode.showBlend
-        ? <HSlider p={`${pre}_blend`} at={B(800, 7.4, 1081.3, 17.4)} thumb={21.3} fillFrom={0.5} color="#ffffff" className="vfx-slide" popup="above" prefix="Blend: " snap={1} ringsAt="below" />
-        : <HSlider p={`${pre}_formant_transpose`} at={B(800, 7.4, 1081.3, 17.4)} thumb={21.3} fillFrom={0.5} color="#ffffff" className="vfx-slide" popup="above" ringsAt="below" />}
+        ? <HSlider p={`${pre}_blend`} at={B(800, 7.4, 1081.3, 17.4)} thumb={21.3} fillFrom={0.5} color={sk('Linear Slider Thumb')} className="vfx-slide" popup="above" prefix="Blend: " snap={1} ringsAt="below" />
+        : <HSlider p={`${pre}_formant_transpose`} at={B(800, 7.4, 1081.3, 17.4)} thumb={21.3} fillFrom={0.5} color={sk('Linear Slider Thumb')} className="vfx-slide" popup="above" ringsAt="below" />}
       <Screen at={at} drop={`${pre}_cutoff`} {...drag} ref={wheel}
         onPointerDown={(e) => { drag.onPointerDown(e); setPressed(true) }} onPointerLeave={() => setPressed(false)}
         overlay={pressed && <>
@@ -720,16 +751,16 @@ export function FilterPanel({ color }: { color: string }) {
         </>}>
         {engine
           ? <FilterCurve px={2} fx pre={pre} w={w} h={h} on={(api.v.filter_fx_on ?? 0) >= 0.5} />
-          : <Curve w={w} h={h} color={color} fy={(f) => h * (0.526 - filterDb(model, style, v('cutoff'), v('resonance'), v('blend'), f, { formantX: v('formant_x'), formantY: v('formant_y'), transpose: v('formant_transpose') }) * 0.028)} />}
+          : <Curve w={w} h={h} fy={(f) => h * (0.526 - filterDb(model, style, v('cutoff'), v('resonance'), v('blend'), f, { formantX: v('formant_x'), formantY: v('formant_y'), transpose: v('formant_transpose') }) * 0.028)} />}
       </Screen>
       <VSlider p={`${pre}_${mode.formant ? 'formant_y' : 'resonance'}`} at={B(1113.3, 25.4, 1124, 167.4)} thumb={42} />
-      <HSlider p={`${pre}_${mode.formant ? 'formant_x' : 'cutoff'}`} at={B(765.3, 175.4, 1105.3, 185.4)} thumb={43} fillFrom={0} color="#ffffff" className="vfx-slide" />
+      <HSlider p={`${pre}_${mode.formant ? 'formant_x' : 'cutoff'}`} at={B(765.3, 175.4, 1105.3, 185.4)} thumb={43} fillFrom={0} color={sk('Linear Slider Thumb')} className="vfx-slide" />
     </>
   )
 }
 
 // ——— Flanger and Phaser ———
-function ModFxScreen({ kind, color }: { kind: 'flanger' | 'phaser'; color: string }) {
+function ModFxScreen({ kind }: { kind: 'flanger' | 'phaser' }) {
   const api = useVital()
   const at: Rect = kind === 'flanger' ? [581.2, 8.4, 879.2, 186.2] : [581.2, 26.1, 879.2, 184.8]
   const w = at[2] - at[0], h = at[3] - at[1]
@@ -748,44 +779,46 @@ function ModFxScreen({ kind, color }: { kind: 'flanger' | 'phaser'; color: strin
     <Screen at={at} drop={`${kind}_center`} {...drag}>
       {engine
         ? <ModFxCurve px={2} kind={kind} w={w} h={h} on={(api.v[`${kind}_on`] ?? 0) >= 0.5} />
-        : <><Curve w={w} h={h} color={color} fy={fy(cR)} n={320} alpha={[0.5, 0.4]} /><Curve w={w} h={h} color={color} fill={false} fy={fy(cL)} n={320} /></>}
+        : <><Curve w={w} h={h} color={RIGHT.line} fy={fy(cR)} n={320} alpha={[0.5, 0.4]} /><Curve w={w} h={h} fill={false} fy={fy(cL)} n={320} /></>}
     </Screen>
   )
 }
 
-export function FlangerPanel({ color }: { color: string }) {
+export function FlangerPanel() {
   return (
     <>
       <TempoBox pre="flanger" at={[397.9, Y1[0], 572.2, Y1[1]]} />
-      <K p="flanger_phase_offset" col={[397.9, 572.2]} row={2} color={color} label="OFFSET" />
-      <ModFxScreen kind="flanger" color={color} />
-      <K p="flanger_feedback" col={CD} row={1} color={color} label="FEEDBACK" />
-      <K p="flanger_dry_wet" col={CE} row={1} color={color} label="MIX" />
-      <K p="flanger_center" col={CD} row={2} color={color} label="CENTER" />
-      <K p="flanger_mod_depth" col={CE} row={2} color={color} label="DEPTH" />
+      <K p="flanger_phase_offset" col={[397.9, 572.2]} row={2} label="OFFSET" />
+      <ModFxScreen kind="flanger" />
+      <K p="flanger_feedback" col={CD} row={1} label="FEEDBACK" />
+      <K p="flanger_dry_wet" col={CE} row={1} label="MIX" />
+      <K p="flanger_center" col={CD} row={2} label="CENTER" />
+      <K p="flanger_mod_depth" col={CE} row={2} label="DEPTH" />
     </>
   )
 }
 
-export function PhaserPanel({ color }: { color: string }) {
+export function PhaserPanel() {
   return (
     <>
       <TempoBox pre="phaser" at={[397.9, Y1[0], 572.2, Y1[1]]} />
-      <K p="phaser_phase_offset" col={[397.9, 572.2]} row={2} color={color} label="OFFSET" />
-      <HSlider p="phaser_blend" at={B(581.2, 8.1, 879.2, 18.1)} thumb={41} fillFrom={0.5} snap={1} popup="above" prefix="Blend: " color="#ffffff" className="vfx-slide vfx-pblend" ringsAt="below" />
-      <ModFxScreen kind="phaser" color={color} />
-      <K p="phaser_feedback" col={CD} row={1} color={color} label="FEEDBACK" />
-      <K p="phaser_dry_wet" col={CE} row={1} color={color} label="MIX" />
-      <K p="phaser_center" col={CD} row={2} color={color} label="CENTER" />
-      <K p="phaser_mod_depth" col={CE} row={2} color={color} label="DEPTH" />
+      <K p="phaser_phase_offset" col={[397.9, 572.2]} row={2} label="OFFSET" />
+      <HSlider p="phaser_blend" at={B(581.2, 8.1, 879.2, 18.1)} thumb={41} fillFrom={0.5} snap={1} popup="above" prefix="Blend: " color={sk('Linear Slider Thumb')} className="vfx-slide vfx-pblend" ringsAt="below" />
+      <ModFxScreen kind="phaser" />
+      <K p="phaser_feedback" col={CD} row={1} label="FEEDBACK" />
+      <K p="phaser_dry_wet" col={CE} row={1} label="MIX" />
+      <K p="phaser_center" col={CD} row={2} label="CENTER" />
+      <K p="phaser_mod_depth" col={CE} row={2} label="DEPTH" />
     </>
   )
 }
 
 // ——— Reverb ———
 /** The reverb's feedback EQ (an EqualizerResponse with only the low and high shelves, buffer 0.4): the
- *  engine's curve, nodes grabbed and dragged as on the Equalizer; LOW / HIGH pick the knobs' band. */
-function ReverbScreen({ color, sel, setSel }: { color: string; sel: number; setSel: (b: number) => void }) {
+ *  engine's curve, nodes grabbed and dragged as on the Equalizer; LOW / HIGH pick the knobs' band (a
+ *  TabSelector: the selected one in Widget Primary 1 over a Rotary Arc Unselected track, the other in
+ *  Text Component Text at 48 %). */
+function ReverbScreen({ sel, setSel }: { sel: number; setSel: (b: number) => void }) {
   const api = useVital()
   const { engine } = useEngine()
   const at: Rect = [506.7, 8, 685.3, 184.7]
@@ -829,40 +862,41 @@ function ReverbScreen({ color, sel, setSel }: { color: string; sel: number; setS
       onPointerMove={(e) => { if (dragging !== null) { const p = local(e); moveTo(dragging, p.x, p.y) } }}
       onPointerUp={() => setDragging(null)} onPointerCancel={() => setDragging(null)}>
       {engine && data
-        ? <EqCurve px={2} data={data} w={w} h={h} axis={axis} line="#9898ff" line2="#8fa0ff" fill="rgba(143,160,255,0.4)" on={(api.v.reverb_on ?? 0) >= 0.5} />
-        : <><path d={`${fallback} L ${w} ${toY(0)} L 0 ${toY(0)} Z`} fill={over(color, 0.5)} /><path d={fallback} fill="none" stroke={color} strokeWidth={3} /></>}
-      <rect x={12} y={0} width={w - 24} height={2.4} fill="#4c4f52" />
-      <rect x={12 + sel * (w - 24) / 2} y={0} width={(w - 24) / 2} height={2.4} fill={color} />
+        ? <EqCurve px={2} data={data} w={w} h={h} axis={axis} on={(api.v.reverb_on ?? 0) >= 0.5} />
+        : <><path d={`${fallback} L ${w} ${toY(0)} L 0 ${toY(0)} Z`} style={{ fill: over(LEFT.line, 0.5) }} /><path d={fallback} fill="none" style={{ stroke: LEFT.line }} strokeWidth={3} /></>}
+      <rect x={12} y={0} width={w - 24} height={2.4} style={{ fill: sk('Rotary Arc Unselected') }} />
+      <rect x={12 + sel * (w - 24) / 2} y={0} width={(w - 24) / 2} height={2.4} style={{ fill: sk('Widget Primary 1') }} />
       {['LOW', 'HIGH'].map((n, i) => (
-        <text key={n} x={i ? 126.3 : 53.3} y={22} textAnchor="middle" fontSize={20.4} fill={i === sel ? color : '#8a8d90'} className="vfx-revtab"
+        <text key={n} x={i ? 126.3 : 53.3} y={22} textAnchor="middle" fontSize={20.4} className="vfx-revtab"
+          style={{ fill: i === sel ? sk('Widget Primary 1') : 'color-mix(in srgb, var(--sk-text-component-text) 48%, transparent)' }}
           onPointerDown={(e) => { e.stopPropagation(); setSel(i) }}>{n}</text>
       ))}
-      {dragging !== null && <circle cx={nodeX(names[dragging])} cy={nodeY(names[dragging])} r={0.18 * h} fill="rgba(255,255,255,0.1)" />}
+      {dragging !== null && <circle cx={nodeX(names[dragging])} cy={nodeY(names[dragging])} r={0.18 * h} style={{ fill: sk('Lighten Screen') }} />}
       {names.map((b, i) => (
-        <circle key={b} cx={nodeX(b)} cy={nodeY(b)} r={0.06 * h} fill={i === sel ? color : 'none'} stroke={color} strokeWidth={i === sel ? 0 : 1} className="vfx-node" />
+        <circle key={b} cx={nodeX(b)} cy={nodeY(b)} r={0.06 * h} style={{ fill: i === sel ? sk('Widget Primary 1') : 'none', stroke: sk('Widget Primary 1') }} strokeWidth={i === sel ? 0 : 1} className="vfx-node" />
       ))}
     </Screen>
   )
 }
 
-export function ReverbPanel({ color }: { color: string }) {
+export function ReverbPanel() {
   const api = useVital()
   const sel = (api.ui.reverbBand as number) ?? 0
   const b = sel ? 'high' : 'low'
   const c = (x0: number, x1: number): Col => [x0, x1]
   return (
     <>
-      <K p="reverb_pre_low_cutoff" col={c(397.9, 500)} row={1} color={color} label="LOW CUT" />
-      <K p="reverb_pre_high_cutoff" col={c(397.9, 500)} row={2} color={color} label="HIGH CUT" />
-      <ReverbScreen color={color} sel={sel} setSel={(s) => api.setUi({ reverbBand: s })} />
-      <K key={`c${b}`} p={`reverb_${b}_shelf_cutoff`} col={c(693.3, 793.3)} row={1} color={color} label="CUTOFF" />
-      <K key={`g${b}`} p={`reverb_${b}_shelf_gain`} col={c(693.3, 793.3)} row={2} color={color} label="GAIN" />
-      <K p="reverb_chorus_amount" col={c(803.3, 903.3)} row={1} color={color} label="CHOR AMT" />
-      <K p="reverb_chorus_frequency" col={c(803.3, 903.3)} row={2} color={color} label="CHOR FREQ" />
-      <K p="reverb_delay" col={c(912, 1013.3)} row={1} color={color} label="DELAY" />
-      <K p="reverb_size" col={c(912, 1013.3)} row={2} color={color} label="SIZE" />
-      <K p="reverb_dry_wet" col={c(1021.3, 1123.3)} row={1} color={color} label="MIX" />
-      <K p="reverb_decay_time" col={c(1021.3, 1123.3)} row={2} color={color} label="TIME" />
+      <K p="reverb_pre_low_cutoff" col={c(397.9, 500)} row={1} label="LOW CUT" />
+      <K p="reverb_pre_high_cutoff" col={c(397.9, 500)} row={2} label="HIGH CUT" />
+      <ReverbScreen sel={sel} setSel={(s) => api.setUi({ reverbBand: s })} />
+      <K key={`c${b}`} p={`reverb_${b}_shelf_cutoff`} col={c(693.3, 793.3)} row={1} label="CUTOFF" />
+      <K key={`g${b}`} p={`reverb_${b}_shelf_gain`} col={c(693.3, 793.3)} row={2} label="GAIN" />
+      <K p="reverb_chorus_amount" col={c(803.3, 903.3)} row={1} label="CHOR AMT" />
+      <K p="reverb_chorus_frequency" col={c(803.3, 903.3)} row={2} label="CHOR FREQ" />
+      <K p="reverb_delay" col={c(912, 1013.3)} row={1} label="DELAY" />
+      <K p="reverb_size" col={c(912, 1013.3)} row={2} label="SIZE" />
+      <K p="reverb_dry_wet" col={c(1021.3, 1123.3)} row={1} label="MIX" />
+      <K p="reverb_decay_time" col={c(1021.3, 1123.3)} row={2} label="TIME" />
     </>
   )
 }

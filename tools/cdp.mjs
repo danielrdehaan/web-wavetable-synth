@@ -1,12 +1,13 @@
 // A tiny DevTools-protocol driver for headless Chromium, for checking the app when no visible browser is
-// painting: SHOTS=<dir> node tools/cdp.mjs <script.mjs>. Uses Playwright's cached chrome-headless-shell.
+// painting: SHOTS=<dir> node tools/cdp.mjs <script.mjs>. Uses Playwright's cached chrome-headless-shell;
+// CDP_PORT (default 9333) picks the debugging port and its own profile, so several can run at once.
 // The script's default export gets { evaluate, evaluateIn (inside a frame, by origin), shot, click, drag,
 // mouse, send, go, sleep }.
 import { spawn } from 'node:child_process'
 import { writeFileSync } from 'node:fs'
 const BIN = process.env.HOME + '/Library/Caches/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-mac-arm64/chrome-headless-shell'
-const port = 9333
-const proc = spawn(BIN, [`--remote-debugging-port=${port}`, '--window-size=1500,1000', '--autoplay-policy=no-user-gesture-required', '--user-data-dir=' + process.env.TMPDIR + '/cdp-profile', 'about:blank'], { stdio: 'ignore' })
+const port = Number(process.env.CDP_PORT ?? 9333)
+const proc = spawn(BIN, [`--remote-debugging-port=${port}`, '--window-size=1500,1000', '--autoplay-policy=no-user-gesture-required', '--user-data-dir=' + process.env.TMPDIR + '/cdp-profile' + (port === 9333 ? '' : `-${port}`), 'about:blank'], { stdio: 'ignore' })
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 let targets
 for (let k = 0; k < 50; k++) { try { targets = await (await fetch(`http://127.0.0.1:${port}/json`)).json(); break } catch { await sleep(100) } }

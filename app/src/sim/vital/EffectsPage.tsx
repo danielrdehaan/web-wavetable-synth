@@ -10,8 +10,11 @@ import './effects.css'
 // icon; drag a tile to reorder the chain, live, as DragDropEffectOrder does), and on the right a scrolling column with a panel for each
 // effect that's on, in chain order. VitalSim wraps this in the page Region at (127, 108) of the frame;
 // positions are frame coordinates minus that corner, halved.
+// The page is the All Effects skin section; each tile and panel is its own effect's section (FX[i].skin).
 
-export const PANELS: ComponentType<{ color: string }>[] = [ChorusPanel, CompressorPanel, DelayPanel, DistortionPanel, EqPanel, FilterPanel, FlangerPanel, PhaserPanel, ReverbPanel]
+/** Each effect's panel body, in FX order; it draws in its section's skin (Panel marks it). The optional
+ *  `color` is ignored (parts.tsx still passes the default skin's). */
+export const PANELS: ComponentType<{ color?: string }>[] = [ChorusPanel, CompressorPanel, DelayPanel, DistortionPanel, EqPanel, FilterPanel, FlangerPanel, PhaserPanel, ReverbPanel]
 
 /** Page-relative box from frame coordinates. */
 const A = (x0: number, y0: number, x1: number, y1: number) => R(x0 - 127, y0 - 108, x1 - 127, y1 - 108)
@@ -41,7 +44,7 @@ function FxIcon({ i }: { i: number }) {
     case 3: // distortion: a broken square
       body = <>
         <path d="M19 15 L50.5 13.5 L60.5 20 L60.5 51 L56 56.5 L17.5 54 Z" fill="currentColor" />
-        <path d="M23 33.5 L56 15.5 M23 33.5 L47.5 37 L61 21 M47.5 37 L61 53 M25 38 L37.5 57 M17 41 L25 38" stroke="#3e4245" strokeWidth={3.2} fill="none" className="vfx-iconcut" />
+        <path d="M23 33.5 L56 15.5 M23 33.5 L47.5 37 L61 21 M47.5 37 L61 53 M25 38 L37.5 57 M17 41 L25 38" strokeWidth={3.2} fill="none" className="vfx-iconcut" />
       </>
       break
     case 4: // equalizer: an eye with three dots
@@ -68,8 +71,9 @@ function FxIcon({ i }: { i: number }) {
   return <svg className="vfx-icon" viewBox="0 0 90 70" aria-hidden="true">{body}</svg>
 }
 
-/** One tile (DraggableEffect): power button, name, icon; while hovered, two 3 × 2 grids of grip dots
- *  near its top and bottom edges in Lighten Screen × 1.5. Dragging is the list's. */
+/** One tile (DraggableEffect): power button, name, icon, in its effect's skin section (effects.css has the
+ *  colours); while hovered, two 3 × 2 grids of grip dots near its top and bottom edges in Lighten Screen ×
+ *  1.5. Dragging is the list's. */
 function Tile({ i, y, dragging, hover }: { i: number; y: number; dragging: boolean; hover: boolean }) {
   const api = useVital()
   const fx = FX[i]
@@ -77,8 +81,8 @@ function Tile({ i, y, dragging, hover }: { i: number; y: number; dragging: boole
   const w = (330.6 - 127) / 2, h = TILE_H / 2
   const spacing = w * (1 - 2 * 0.45) / 2, radius = spacing * 0.25, gx = w * 0.45, gy = h * 0.13
   return (
-    <div className={`vfx-tile${on ? ' on' : ''}${dragging ? ' drag' : ''}`} style={{ ...A(127, y, 330.6, y + TILE_H), ...(on ? { borderColor: fx.color, color: fx.color } : {}) }}>
-      <span className="vt-dot vfx-tdot" style={{ left: 22.2 / 2 - 5.5 - 1, top: 22.3 / 2 - 5.5 - 1, background: on ? fx.color : undefined }}
+    <div className={`vfx-tile${on ? ' on' : ''}${dragging ? ' drag' : ''}`} data-skin={fx.skin} style={A(127, y, 330.6, y + TILE_H)}>
+      <span className="vt-dot vfx-tdot" style={{ left: 22.2 / 2 - 5.5 - 1, top: 22.3 / 2 - 5.5 - 1 }}
         onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); api.checkpoint(); api.set(fx.on, on ? 0 : 1) }} title={`${fx.name} on/off`} />
       <span className="vfx-tname">{fx.name}</span>
       <FxIcon i={i} />
@@ -168,7 +172,7 @@ export function EffectsPage() {
   const thumbRef = useRef<{ y0: number; s0: number } | null>(null)
 
   return (
-    <div className="vfx-page">
+    <div className="vfx-page" data-skin="All Effects">
       <div className="vfx-tiles" style={A(127, 108, 330.6, 1140.3)} onPointerDown={down} onPointerMove={move} onPointerUp={up}
         onPointerCancel={up} onPointerLeave={() => setHover(-1)}>
         {/* The connector behind the tiles (paintBackground): 10 % of the width, just right of centre. */}
@@ -183,7 +187,7 @@ export function EffectsPage() {
             const P = PANELS[i]
             return (
               <Panel key={FX[i].key} fx={FX[i]} top={k * PANEL_PITCH}>
-                <P color={FX[i].color} />
+                <P />
               </Panel>
             )
           })}

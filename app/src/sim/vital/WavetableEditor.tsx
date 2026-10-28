@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
 import type { SynthEngine } from '../../../../web/engine-client.js'
 import { readAudioFile } from '../../engine/audioFile'
 import { useEngine } from '../../engine/EngineContext'
@@ -10,6 +10,7 @@ import { LineEditor, type LineSkin } from './LineEditor'
 import type { Line } from './line'
 import { openPopupBrowser } from './PopupBrowser'
 import { requestSave } from './SaveOverlay'
+import { defaultColor, useSkinColors, useSkinValues } from './skin'
 import { loadTableFile, tableChanged } from './wavetableIO'
 import './wtedit.css'
 
@@ -47,9 +48,54 @@ const PAD = 4
 const TITLE_H = EDIT_H * 0.4 // WavetableComponentOverlay::kTitleHeightRatio
 const OBSCURE = 0.4 // WavetableEditSection::kObscureAmount
 
-const PRIMARY = '#aa88ff', DISABLED = '#848789', BG = '#1d2125'
-const FILL = 'rgba(170,136,255,0.43)', FILL_DISABLED = 'rgba(132,135,137,0.4)'
-const LIGHTEN = 'rgba(255,255,255,0.133)'
+// ── The skin ──
+// The editor is marked data-skin="Wavetable Editor" and its drawing reads that section's colours from
+// its element (WtSkin). The 1.5.5 capture's lightened shades (grid, ticks, rows) are drawn as Lighten
+// Screen with its alpha scaled so the default skin's section (0x19 white) gives the shade measured.
+
+/** A CSS colour (#rrggbb or rgb[a]( … ), as the skin gives them) as its channels and alpha. */
+function channels(c: string): [number, number, number, number] {
+  if (c.startsWith('#')) {
+    const n = (i: number) => parseInt(c.slice(i, i + 2), 16)
+    return [n(1), n(3), n(5), c.length >= 9 ? n(7) / 255 : 1]
+  }
+  const m = c.match(/[\d.]+/g)?.map(Number) ?? [0, 0, 0]
+  return [m[0], m[1], m[2], m[3] ?? 1]
+}
+/** The colour with its alpha multiplied by `mult` (Colour::withMultipliedAlpha). */
+const alphaTimes = (c: string, mult: number) => { const [r, g, b, a] = channels(c); return `rgba(${r},${g},${b},${Math.min(1, a * mult)})` }
+/** The colour at alpha `a` (Colour::withAlpha). */
+const atAlpha = (c: string, a: number) => { const [r, g, b] = channels(c); return `rgba(${r},${g},${b},${a})` }
+
+const WT_COLORS = ['Widget Primary 1', 'Widget Primary Disabled', 'Widget Background', 'Widget Secondary 1', 'Widget Secondary Disabled',
+  'Lighten Screen', 'Widget Accent 1', 'Widget Accent 2', 'Overlay Screen'] as const
+const LIGHTEN_ALPHA = 0x19 / 255 // the default skin's Wavetable Editor Lighten Screen
+
+interface WtSkin {
+  primary: string; disabled: string; bg: string; fill: string; fillDisabled: string
+  accent1: string; accent2: string; overlay: string
+  /** Lighten Screen at the strength the default skin draws as alpha `a` of white. */
+  lit: (a: number) => string
+  /** Widget Line Width in points. */
+  lineWidth: number
+}
+function makeSkin(c: Record<(typeof WT_COLORS)[number], string>, lineWidth: number): WtSkin {
+  return {
+    primary: c['Widget Primary 1'], disabled: c['Widget Primary Disabled'], bg: c['Widget Background'],
+    fill: c['Widget Secondary 1'], fillDisabled: c['Widget Secondary Disabled'],
+    accent1: c['Widget Accent 1'], accent2: c['Widget Accent 2'], overlay: c['Overlay Screen'],
+    lit: (a) => alphaTimes(c['Lighten Screen'], a / LIGHTEN_ALPHA), lineWidth,
+  }
+}
+const WtSkinContext = createContext<WtSkin>(makeSkin(
+  Object.fromEntries(WT_COLORS.map((k) => [k, defaultColor(k)])) as Record<(typeof WT_COLORS)[number], string>, 2))
+/** The editor's colours as `ref`'s element (the editor's root) sees them. */
+function useWtSkinOf(ref: RefObject<Element | null>): WtSkin {
+  const c = useSkinColors(ref, WT_COLORS)
+  const v = useSkinValues(ref, ['Widget Line Width'])
+  return useMemo(() => makeSkin(c, v['Widget Line Width']), [c, v])
+}
+const useWtSkin = () => useContext(WtSkinContext)
 
 const SOURCE_TYPES = ['Wave Source', 'Line Source', 'Audio File Source']
 const MODIFIER_TYPES = ['Phase Shift', 'Wave Window', 'Frequency Filter', 'Slew Limiter', 'Wave Folder', 'Wave Warp']
@@ -127,14 +173,10 @@ function local(e: { clientX: number; clientY: number }, el: Element, width: numb
 }
 
 const capture = (e: React.PointerEvent) => { try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic pointer */ } }
-const fade = (c: string, t: number) => c.replace(/rgba?\(([^)]+)\)/, (_, inner: string) => {
-  const p = inner.split(',').map((x) => x.trim())
-  return `rgba(${p[0]},${p[1]},${p[2]},${(p[3] === undefined ? 1 : parseFloat(p[3])) * (1 - t)})`
-})
-const hexA = (hex: string, a: number) => `rgba(${parseInt(hex.slice(1, 3), 16)},${parseInt(hex.slice(3, 5), 16)},${parseInt(hex.slice(5, 7), 16)},${a})`
 
-/** OpenGlLineRenderer with fill: the waveform (+1 at the top) stroked over its fill to the centre. */
-function drawWaveform(g: CanvasRenderingContext2D, w: number, h: number, k: number, values: ArrayLike<number>, n: number, line: string, fill: string) {
+/** OpenGlLineRenderer with fill: the waveform (+1 at the top) stroked `width` points wide over its fill
+ *  to the centre. */
+function drawWaveform(g: CanvasRenderingContext2D, w: number, h: number, k: number, values: ArrayLike<number>, n: number, line: string, fill: string, width = 2) {
   const y = (v: number) => (h / 2) * (1 - v)
   g.beginPath()
   g.moveTo(0, h / 2)
@@ -147,7 +189,7 @@ function drawWaveform(g: CanvasRenderingContext2D, w: number, h: number, k: numb
   g.moveTo(0, y(values[0]))
   for (let i = 1; i < n; i++) g.lineTo((i * w) / (n - 1), y(values[i]))
   g.strokeStyle = line
-  g.lineWidth = 2 * PT * k
+  g.lineWidth = width * PT * k
   g.lineJoin = 'round'
   g.stroke()
 }
@@ -284,6 +326,8 @@ function Controls({ width, lines, titles, children }: { width: number; lines: nu
 
 function Editor({ osc, engine }: { osc: number; engine: SynthEngine }) {
   const api = useVital()
+  const root = useRef<HTMLDivElement>(null)
+  const skin = useWtSkinOf(root)
   const { ctx } = useEngine()
   const [layout, setLayout] = useState<Layout | null>(null)
   const [sel, setSel] = useState<Sel[]>([])
@@ -412,7 +456,8 @@ function Editor({ osc, engine }: { osc: number; engine: SynthEngine }) {
   const coversPhase = type === 0 || type === 3
 
   return (
-    <div className="wt-editor" onPointerDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.preventDefault()}>
+    <WtSkinContext.Provider value={skin}>
+    <div ref={root} className="wt-editor" data-skin="Wavetable Editor" onPointerDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.preventDefault()}>
       <div className="wt-bg" style={R(0, 38, 2000, 1212)} />
       <input ref={importFile} type="file" accept=".vitaltable,.wav,audio/*" hidden
         onChange={(e) => { const f = e.currentTarget.files?.[0]; e.currentTarget.value = ''; if (f) void loadFile(f, undefined, f.name.replace(/\.[^.]+$/, '')) }} />
@@ -464,6 +509,7 @@ function Editor({ osc, engine }: { osc: number; engine: SynthEngine }) {
           afterMove={() => { void show(-2) }} positionsUpdated={async () => { await reload(); finish() }} />
       </>}
     </div>
+    </WtSkinContext.Provider>
   )
 }
 
@@ -473,9 +519,11 @@ const GEAR_PATH = 'M12 8.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8zm8.3 4.6l1.9 
 /** The frame at the playhead (oscillator_waveform_), in Widget Primary Disabled; faded when the overlay
  *  edits over it, gone when the overlay's own editor paints there. */
 function BaseWave({ at, data, obscured, hidden }: { at: Rect; data: Float32Array | null; obscured: boolean; hidden: boolean }) {
+  const c = useWtSkin()
   const ref = useCanvas(at[2] - at[0], (g, w, h, k) => {
     if (!data || hidden) return
-    drawWaveform(g, w, h, k, data, SIZE, obscured ? hexA(DISABLED, 1 - OBSCURE) : DISABLED, obscured ? fade(FILL_DISABLED, OBSCURE) : FILL_DISABLED)
+    drawWaveform(g, w, h, k, data, SIZE, obscured ? alphaTimes(c.disabled, 1 - OBSCURE) : c.disabled,
+      obscured ? alphaTimes(c.fillDisabled, 1 - OBSCURE) : c.fillDisabled)
   })
   return <canvas ref={ref} className="wt-screen" style={R(...at)} />
 }
@@ -485,9 +533,10 @@ function BaseWave({ at, data, obscured, hidden }: { at: Rect; data: Float32Array
 function BaseBars({ at, data, kind, zoom, power, obscured, hidden, onZoom }: {
   at: Rect; data: Float32Array | null; kind: 'amp' | 'phase'; zoom: number; power: boolean; obscured: boolean; hidden: boolean; onZoom: (z: number) => void
 }) {
+  const c = useWtSkin()
   const ref = useCanvas(at[2] - at[0], (g, w, h) => {
     if (!data || hidden) return
-    const color = obscured ? fade(FILL_DISABLED, OBSCURE) : FILL_DISABLED
+    const color = obscured ? alphaTimes(c.fillDisabled, 1 - OBSCURE) : c.fillDisabled
     if (kind === 'amp') drawBars(g, w, h, (i) => (i < SIZE / 2 ? ampHeight(data[SIZE + i], i, power) : 0), zoom, color, true)
     else drawBars(g, w, h, (i) => (i < SIZE / 2 ? (data[SIZE + SIZE / 2 + i] + 1) / 2 : 0), zoom, color, true)
   })
@@ -504,15 +553,16 @@ function PlayheadInfo({ position }: { position: number }) {
 /** WavetablePlayhead: ticks every 4 frames (taller every 16), the position line; press or drag to move. */
 function Playhead({ position, onMove }: { position: number; onMove: (p: number) => void }) {
   const W = PLAYHEAD[2] - PLAYHEAD[0], pad = HANDLE / 2, active = W - 2 * pad + PT
+  const c = useWtSkin()
   const ref = useCanvas(W, (g, _w, h, k) => {
-    g.fillStyle = 'rgba(255,255,255,0.21)'
+    g.fillStyle = c.lit(0.21)
     const small = Math.floor(h / 3), big = 2 * small
     for (let i = 0; i < FRAMES; i += 4) {
       const x = Math.round((pad - 0.5 * PT + (i * active) / LAST) * k)
       const lh = i % 16 === 0 ? big : small
       g.fillRect(x, h - lh, Math.max(1, PT * k * 0.72), lh)
     }
-    g.fillStyle = PRIMARY
+    g.fillStyle = c.primary
     g.fillRect(Math.round(((active * position) / LAST - 0.5 * PT + pad) * k), 0, Math.max(1, PT * k * 0.72), h)
   })
   const at = (e: React.PointerEvent) => {
@@ -654,19 +704,20 @@ function Organizer({ layout, setLayout, sel, playhead, scroll, onScroll, wt, sel
   const rowFromY = (y: number) => Math.max(0, Math.floor((y - offset) / HANDLE))
   const positionFromX = (x: number) => Math.min(Math.max(0, Math.floor(x / FRAME_W)), LAST)
 
+  const sk = useWtSkin()
   const ref = useCanvas(W, (g, w, h, k) => {
-    g.fillStyle = BG
+    g.fillStyle = sk.bg
     g.fillRect(0, 0, w, h)
     const half = (0.5 * HANDLE) * k
-    g.fillStyle = 'rgba(255,255,255,0.066)'
+    g.fillStyle = sk.lit(0.066)
     g.fillRect(0, 0, half, h)
     g.fillRect(w - half, 0, half, h)
     for (let i = 4; i < FRAMES - 1; i += 4) {
-      g.fillStyle = i % 32 === 0 ? 'rgba(255,255,255,0.168)' : 'rgba(255,255,255,0.066)'
+      g.fillStyle = sk.lit(i % 32 === 0 ? 0.168 : 0.066)
       g.fillRect(Math.round((i * FRAME_W + HANDLE / 2) * k), 0, Math.max(1, PT * k * 0.72), h)
     }
     // Active rows (setRowQuads): each component's row, a point in from top and bottom.
-    g.fillStyle = 'rgba(255,255,255,0.066)'
+    g.fillStyle = sk.lit(0.066)
     let y = offset
     layout.groups.forEach((group) => {
       group.forEach(() => { g.fillRect(0, (y + PT) * k, w, (HANDLE - 2 * PT) * k); y += HANDLE })
@@ -679,24 +730,24 @@ function Organizer({ layout, setLayout, sel, playhead, scroll, onScroll, wt, sel
       comp.positions.forEach((pos) => {
         const on = selected(gi, ci, pos)
         if (!comp.has_keyframes) {
-          g.fillStyle = on ? PRIMARY : DISABLED
+          g.fillStyle = on ? sk.primary : sk.disabled
           g.fillRect(0, top + 2 * k, w, size - 4 * k)
           return
         }
         const x = FRAME_W * pos * k, cx = x + size / 2, cy = top + size / 2, r = size / 2 - PT * k
         g.beginPath(); g.moveTo(cx, cy - r); g.lineTo(cx + r, cy); g.lineTo(cx, cy + r); g.lineTo(cx - r, cy); g.closePath()
-        g.fillStyle = on ? PRIMARY : DISABLED
+        g.fillStyle = on ? sk.primary : sk.disabled
         g.fill()
         g.lineWidth = 2 * PT * k * 0.72
-        g.strokeStyle = BG
+        g.strokeStyle = sk.bg
         g.stroke()
       })
     }))
     if (box) {
-      g.fillStyle = LIGHTEN
+      g.fillStyle = sk.lit(0.133)
       g.fillRect(box[0] * k, box[1] * k, (box[2] - box[0]) * k, (box[3] - box[1]) * k)
     }
-    g.fillStyle = PRIMARY
+    g.fillStyle = sk.primary
     g.fillRect(Math.round((HANDLE / 2 + playhead * FRAME_W) * k), 0, Math.max(1, PT * k * 0.72), h)
   })
 
@@ -984,24 +1035,25 @@ function WaveSourceEditor({ at, values, grid, onChange, onMenu, visible }: {
     }
     onChange(Math.min(from, to), Math.max(from, to), false)
   }
+  const sk = useWtSkin()
   const ref = useCanvas(W, (g, w, h, k) => {
-    g.fillStyle = BG
+    g.fillStyle = sk.bg
     g.fillRect(0, 0, w, h)
-    g.fillStyle = 'rgba(255,255,255,0.035)'
+    g.fillStyle = sk.lit(0.035)
     for (let x = 1; x < gx; x++) g.fillRect(Math.round((x / gx) * w), 0, Math.max(1, PT * k * 0.72), h)
     for (let y = 1; y < gy; y++) g.fillRect(0, Math.round((y / gy) * h), w, Math.max(1, PT * k * 0.72))
-    if (visible) drawWaveform(g, w, h, k, values, SIZE, PRIMARY, FILL)
+    if (visible) drawWaveform(g, w, h, k, values, SIZE, sk.primary, sk.fill, sk.lineWidth)
     const r = snapRadius() * k
     if (r > 0) {
-      g.fillStyle = 'rgba(255,255,255,0.19)'
+      g.fillStyle = sk.lit(0.19)
       for (let x = 0; x <= gx; x++) for (let y = 0; y <= gy; y++) { g.beginPath(); g.arc((x / gx) * w, (y / gy) * h, r, 0, Math.PI * 2); g.fill() }
       const s = st.current, hp = s.editing ? s.last : snapped(s.mouse)
-      g.fillStyle = 'rgba(255,255,255,0.3)'
+      g.fillStyle = sk.lit(0.3)
       g.beginPath(); g.arc(hp.x * k, hp.y * k, r, 0, Math.PI * 2); g.fill()
     }
     const s = st.current
     if (s.editing) {
-      g.strokeStyle = LIGHTEN; g.lineWidth = 2 * PT * k
+      g.strokeStyle = sk.lit(0.133); g.lineWidth = sk.lineWidth * PT * k
       g.beginPath(); g.moveTo(s.last.x * k, s.last.y * k); g.lineTo(s.mouse.x * k, s.mouse.y * k); g.stroke()
     }
   })
@@ -1068,10 +1120,11 @@ function BarEditor({ at, heights, setHeight, zoom, clear, onChange }: {
     redraw((n) => n + 1)
     onChange(false)
   }
+  const sk = useWtSkin()
   const ref = useCanvas(W, (g, w, h) => {
-    g.fillStyle = BG
+    g.fillStyle = sk.bg
     g.fillRect(0, 0, w, h)
-    drawBars(g, w, h, heights, zoom, PRIMARY, false)
+    drawBars(g, w, h, heights, zoom, sk.primary, false)
   })
   const all = (fn: (k: number) => boolean, value: (k: number) => number = () => clear) => {
     for (let k = 0; k < BARS; k++) if (fn(k)) setHeight(k, value(k))
@@ -1105,14 +1158,19 @@ function BarEditor({ at, heights, setHeight, zoom, clear, onChange }: {
 }
 
 /** WaveLineSourceOverlay: the keyframe's line drawn over the frame (LineEditor, filled to the centre,
- *  4 px wide) and PULL POWER · GRID X · GRID Y. Points added or removed reach every keyframe. */
-const WT_SKIN: LineSkin = {
-  primary1: PRIMARY, primary2: PRIMARY, secondary1: FILL, secondary2: FILL, center: PRIMARY,
-  accent1: 'rgba(255,255,255,0.733)', accent2: 'rgba(255,255,255,0.067)', background: BG, lighten: LIGHTEN,
-  primaryDisabled: DISABLED, secondaryDisabled: FILL_DISABLED, lineWidth: 4 * 1000 / 1440 / 1.44, lineBoost: 0, fillBoost: 0, fillFade: 0,
+ *  4 px wide, in Widget Primary 1 over Widget Secondary 1) and PULL POWER · GRID X · GRID Y. Points
+ *  added or removed reach every keyframe. */
+function lineSkinOf(sk: WtSkin): LineSkin {
+  return {
+    primary1: sk.primary, primary2: sk.primary, secondary1: sk.fill, secondary2: sk.fill, center: sk.primary,
+    accent1: sk.accent1, accent2: sk.accent2, background: sk.bg, lighten: sk.lit(0.133),
+    primaryDisabled: sk.disabled, secondaryDisabled: sk.fillDisabled, lineWidth: 4 * 1000 / 1440 / 1.44, lineBoost: 0, fillBoost: 0, fillFade: 0,
+  }
 }
 function LineSourceOverlay(props: { ed: Ed; g: number; c: number; i: number; comp: Comp }) {
   const { ed, g, c, i } = props
+  const sk = useWtSkin()
+  const lineSkin = useMemo(() => lineSkinOf(sk), [sk])
   const [kf, setKf] = useKeyframe(props)
   const [grid, setGrid] = useState<[number, number]>([6, 4])
   const [line, setLine] = useState<Line | null>(null)
@@ -1137,7 +1195,7 @@ function LineSourceOverlay(props: { ed: Ed; g: number; c: number; i: number; com
   return (
     <>
       {line && <LineEditor at={WAVE} line={line} onChange={onLine} loop={false} gridX={grid[0]} gridY={grid[1]} paint={false} pattern={0}
-        skin={WT_SKIN} fillCenter={0.5} onScroll={(d) => setGrid([Math.max(0, Math.min(16, grid[0] + d)), grid[1]])} className="wt-linesource" />}
+        skin={lineSkin} fillCenter={0.5} onScroll={(d) => setGrid([Math.max(0, Math.min(16, grid[0] + d)), grid[1]])} className="wt-linesource" />}
       <Controls width={total} lines={[pullW, pullW + gridW + PAD, pullW + 2 * (gridW + PAD)]} titles={['PULL POWER', 'GRID X', 'GRID Y']}>
         <TextSlider at={[0, TITLE_H, pullW, h]} value={Number(kf?.pull_power ?? 0)} min={0} max={5} def={0}
           onChange={(v, final) => setKf({ pull_power: v }, final)} />
@@ -1173,8 +1231,9 @@ function PhaseOverlay(props: { ed: Ed; g: number; c: number; i: number; comp: Co
 /** PhaseEditor: kNumLines ticks at the phase, halving in height at each finer division. */
 function PhaseTicks({ at, phase, maxHeight, onChange }: { at: Rect; phase: number; maxHeight: number; onChange: (p: number, final: boolean) => void }) {
   const W = at[2] - at[0]
+  const sk = useWtSkin()
   const ref = useCanvas(W, (g, w, h, k) => {
-    g.fillStyle = LIGHTEN
+    g.fillStyle = sk.lit(0.133)
     for (let i = 0; i < 16; i++) {
       let t = phase / (2 * Math.PI) + i / 16
       t -= Math.floor(t)
@@ -1233,6 +1292,7 @@ function WindowOverlay(props: { ed: Ed; g: number; c: number; i: number; comp: C
 function WindowEditor({ at, left, right, shape, onChange }: { at: Rect; left: number; right: number; shape: number; onChange: (l: number, r: number, final: boolean) => void }) {
   const W = at[2] - at[0]
   const GRAB = 0.05
+  const sk = useWtSkin()
   const [hover, setHover] = useState<'l' | 'r' | null>(null)
   const editing = useRef<'l' | 'r' | null>(null)
   const pos = useRef({ left, right })
@@ -1250,10 +1310,10 @@ function WindowEditor({ at, left, right, shape, onChange }: { at: Rect; left: nu
     for (let i = 0; i < n; i++) { const t = i / (n - 1); pts.push([right * w + t * (w - right * w), half + applyWindow(shape, 1 - t) * half]) }
     const all = [...pts, ...pts.slice().reverse().map(([x, y]) => [x, h - y] as [number, number])]
     g.beginPath(); all.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.closePath()
-    g.fillStyle = fade(FILL, 0.5); g.fill()
-    g.strokeStyle = PRIMARY; g.lineWidth = 2 * PT * k; g.lineJoin = 'round'; g.stroke()
+    g.fillStyle = alphaTimes(sk.fill, 0.5); g.fill()
+    g.strokeStyle = sk.primary; g.lineWidth = sk.lineWidth * PT * k; g.lineJoin = 'round'; g.stroke()
     const quad = (x: number) => g.fillRect((x - GRAB / 2) * w, 0, GRAB * w, h)
-    g.fillStyle = 'rgba(255,255,255,0.066)'
+    g.fillStyle = sk.lit(0.066)
     quad(left); quad(right)
     const lit = editing.current ?? null
     if (lit) quad(lit === 'l' ? left : right)
@@ -1406,13 +1466,14 @@ function FileSourceOverlay(props: { ed: Ed; g: number; c: number; i: number; com
   )
 }
 
-/** AudioFileViewer: the file's peaks mirrored about the centre (Widget Primary 1, filled at 10 %), the
+/** AudioFileViewer: the file's peaks mirrored about the centre (Widget Primary 1 over Widget Secondary 1 from 10 %), the
  *  window and its fades lit; dragging moves the window by the drag's share of the width. */
 function AudioViewer({ at, peaks, position, size, fade: windowFade, dragging, onMove, onDragState, onDrop }: {
   at: Rect; peaks: Float32Array | null; position: number; size: number; fade: number; dragging: boolean
   onMove: (ratio: number, final: boolean) => void; onDragState: (on: boolean) => void; onDrop: (f: File) => void
 }) {
   const W = at[2] - at[0]
+  const sk = useWtSkin()
   const ref = useCanvas(W, (g, w, h, k) => {
     const buffer = h * 0.1, inner = h - 2 * buffer, center = buffer + inner / 2, n = 256
     const fadeLen = Math.max(windowFade * size, 1 / n)
@@ -1426,16 +1487,16 @@ function AudioViewer({ at, peaks, position, size, fade: windowFade, dragging, on
       const v0 = peaks ? peaks[i] : 0, v1 = peaks ? peaks[i + 1] : 0
       const x0 = (i / (n - 1)) * w, x1 = ((i + 1) / (n - 1)) * w
       const b = (boost(i) + boost(i + 1)) / 2
-      g.fillStyle = `rgba(170,136,255,${0.1 + 0.9 * b * 0.6})`
+      g.fillStyle = atAlpha(sk.fill, 0.1 + 0.9 * b * 0.6)
       g.beginPath(); g.moveTo(x0, center - v0 * (inner / 2)); g.lineTo(x1, center - v1 * (inner / 2)); g.lineTo(x1, center + v1 * (inner / 2)); g.lineTo(x0, center + v0 * (inner / 2)); g.closePath(); g.fill()
     }
-    g.strokeStyle = PRIMARY; g.lineWidth = 1.5 * k
+    g.strokeStyle = sk.primary; g.lineWidth = 1.5 * k
     for (const sign of [-1, 1]) {
       g.beginPath()
       for (let i = 0; i < n; i++) { const x = (i / (n - 1)) * w, y = center + sign * (peaks ? peaks[i] : 0) * (inner / 2); if (i) g.lineTo(x, y); else g.moveTo(x, y) }
       g.stroke()
     }
-    if (dragging) { g.fillStyle = 'rgba(0,0,0,0.5)'; g.fillRect(0, 0, w, h) }
+    if (dragging) { g.fillStyle = atAlpha(sk.overlay, 0.5); g.fillRect(0, 0, w, h) }
   })
   const last = useRef<number | null>(null)
   return <canvas ref={ref} className="wt-audio" style={R(...at)}

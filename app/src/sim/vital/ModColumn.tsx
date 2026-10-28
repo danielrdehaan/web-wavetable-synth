@@ -14,13 +14,12 @@ import { RandomDisplay } from '../../engine/RandomDisplay'
 import { statusLanes } from '../../engine/status'
 import { lineFromEngine, lineToEngine } from '../../engine/shapes'
 import { R, useControlMenu, useSlider, useStepWheel } from './hooks'
+import { sk } from './skin'
 import { FREQ_SYNC, LFO_SYNC, LFO_SYNC_SHORT, N_ENV, N_LFO, N_RAND, RANDOM_NAMES, RANDOM_SHORT, shown, SYNCED_FREQ } from './params'
 
 // Vital's modulator column, on every page: ENV 1–6, LFO 1–8 and RAND 1–4 (tabs that scroll), the MIDI
 // sources grid, and the voice and glide boxes. A tab is both a selector (click) and the modulator's
 // handle (drag it onto a control to connect it, as Vital does).
-
-const TEAL = '#64ffda'
 
 /** Vital's vertical source tabs (ModulationTabSelector): click to show one, drag it onto a control to
  *  modulate. They show the minimum (3 ENV, 4 LFO, 2 RAND) plus one past the highest connected, sharing
@@ -57,11 +56,11 @@ export function EnvSection() {
   const sel = (api.ui.env as number) ?? 0
   const pre = `env_${sel + 1}`
   return (
-    <Region tags={sel === 0 ? ['mod', 'main'] : ['mod']} className="vt-mod" style={R(1147, 108, 1986, 412)} label={`ENV ${sel + 1}`}>
+    <Region tags={sel === 0 ? ['mod', 'main'] : ['mod']} className="vt-mod" style={R(1147, 108, 1986, 412)} label={`ENV ${sel + 1}`} skin="Envelope">
       <SourceTabs kind="env" label="ENV" n={N_ENV} min={3} h={304} sel={sel} onSel={(i) => api.setUi({ env: i })} />
       <Box at={[98, 0, 839, 304]} className="vt-modbody" />
       <EnvelopeEditor at={[105, 7, 831, 202]} pre={pre} running={pre === 'env_1' || api.focusSrc === pre || api.mods.some((m) => m.src === pre)} />
-      {ENV_KNOBS.map(([k, n], i) => <Knob key={k} p={`${pre}_${k}`} x={162 + i * 122} y={240} d={58} color={TEAL} label={n} labelAt={[106 + i * 122, 272, 219 + i * 122, 297]} />)}
+      {ENV_KNOBS.map(([k, n], i) => <Knob key={k} p={`${pre}_${k}`} x={162 + i * 122} y={240} d={58} label={n} labelAt={[106 + i * 122, 272, 219 + i * 122, 297]} />)}
     </Region>
   )
 }
@@ -162,7 +161,7 @@ export function LfoSection() {
   // The engine runs an LFO that's connected or selected (isModSourceEnabled / forceShowModulation).
   const used = api.focusSrc === pre || api.mods.some((m) => m.src === pre)
   return (
-    <Region tags={['mod']} className="vt-mod" style={R(1147, 418, 1986, 830)} label={`LFO ${sel + 1}`}>
+    <Region tags={['mod']} className="vt-mod" style={R(1147, 418, 1986, 830)} label={`LFO ${sel + 1}`} skin="Lfo">
       <SourceTabs kind="lfo" label="LFO" n={N_LFO} min={4} h={412} sel={sel} onSel={(i) => api.setUi({ lfo: i })} />
       <Box at={[98, 0, 839, 412]} className="vt-modbody" />
       <Box at={[105, 7, 226, 39]} className="vt-chip flat">
@@ -199,17 +198,17 @@ export function LfoSection() {
         catch { window.alert(`${f.name} isn't an LFO file this synth can read.`) }
       }} />
       {/* The phase: a full LinearBar SynthSlider (drag, wheel, menu, rings, drop target). */}
-      <HSlider p={`${pre}_phase`} at={[105, 294, 831, 304]} thumb={20} color="#ffffff" className="vt-phase" />
+      <HSlider p={`${pre}_phase`} at={[105, 294, 831, 304]} thumb={20} className="vt-phase" />
       <MenuBox p={`${pre}_sync_type`} at={[105, 312, 262, 397]} names={LFO_SYNC} short={LFO_SYNC_SHORT} label="MODE" />
       <TempoBox pre={pre} at={[271, 312, 428, 397]} />
       {smoothMode === 0
-        ? <Knob p={`${pre}_fade_time`} x={499} y={342} d={58} color={TEAL} />
-        : <Knob p={`${pre}_smooth_time`} x={499} y={342} d={58} color={TEAL} />}
+        ? <Knob p={`${pre}_fade_time`} x={499} y={342} d={58} />
+        : <Knob p={`${pre}_smooth_time`} x={499} y={342} d={58} />}
       <Pill at={[437, 372, 561, 397]} className="vt-modelabel">
         <span style={{ cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); api.openMenu({ w: 70, items: SMOOTH_MODES.map((label, k) => ({ label, on: k === smoothMode, act: () => { api.checkpoint(); api.set(`${pre}_smooth_mode`, k) } })) }, e) }}>{SMOOTH_MODES[smoothMode]}</span>
       </Pill>
-      <Knob p={`${pre}_delay_time`} x={633} y={342} d={58} color={TEAL} label="DELAY" labelAt={[571, 372, 695, 397]} />
-      <Knob p={`${pre}_stereo`} x={767} y={342} d={58} color={TEAL} label="STEREO" labelAt={[705, 372, 829, 397]} />
+      <Knob p={`${pre}_delay_time`} x={633} y={342} d={58} label="DELAY" labelAt={[571, 372, 695, 397]} />
+      <Knob p={`${pre}_stereo`} x={767} y={342} d={58} label="STEREO" labelAt={[705, 372, 829, 397]} />
     </Region>
   )
 }
@@ -219,7 +218,7 @@ export function RandSection() {
   const sel = (api.ui.rand as number) ?? 0
   const pre = `random_${sel + 1}`
   return (
-    <Region tags={['mod']} className="vt-mod" style={R(1147, 830, 1583, 1036)} label={`RAND ${sel + 1}`}>
+    <Region tags={['mod']} className="vt-mod" style={R(1147, 830, 1583, 1036)} label={`RAND ${sel + 1}`} skin="RandomLfo">
       <SourceTabs kind="random" label="RAND" n={N_RAND} min={2} h={206} sel={sel} onSel={(i) => api.setUi({ rand: i })} />
       <Box at={[98, 0, 436, 206]} className="vt-modbody" />
       <Toggle p={`${pre}_sync_type`} at={[105, 8, 262, 32]}>SYNC</Toggle>
@@ -270,7 +269,8 @@ function StereoModeLabel() {
 
 export function VoiceBox() {
   return (
-    <Box at={[1147, 1040, 1583, 1140]} className="vt-modbody vt-voice">
+    // VoiceSection and PortamentoSection take the Keyboard skin (voice_section.cpp, portamento_section.cpp).
+    <Box at={[1147, 1040, 1583, 1140]} className="vt-modbody vt-voice" data-skin="Keyboard">
       <NumBox p="polyphony" at={[8, 8, 98, 70]} /><NumBox p="pitch_bend_range" at={[105, 8, 195, 70]} />
       <Pill at={[8, 70, 98, 94]}>VOICES</Pill><Pill at={[105, 70, 195, 94]}>BEND</Pill>
       <Knob p="velocity_track" x={258} y={36} d={58} label="VEL TRK" labelAt={[203, 70, 312, 94]} />
@@ -291,7 +291,7 @@ function SlopeBox() {
   const curve = Array.from({ length: 17 }, (_, k) => { const t = k / 16; return `${k ? 'L' : 'M'} ${4 + t * 48} ${28 - powerCurve(t, -slope) * 25}` }).join(' ')
   return (
     <Box at={[127, 8, 240, 70]} className={`vt-num slope${dropTarget(api, p) ? ' target' : ''}`} data-drop={p} {...sl.handlers} onContextMenu={menu}>
-      <svg viewBox="0 0 56 31"><path d={curve} stroke="#aa88ff" fill="none" strokeWidth={1.4} strokeLinecap="round" /></svg>
+      <svg viewBox="0 0 56 31"><path d={curve} style={{ stroke: sk('Rotary Arc') }} fill="none" strokeWidth={1.4} strokeLinecap="round" /></svg>
       {sl.popup && <Bubble text={shown(p, slope)} />}
       {sl.editing && <TextEntry p={p} onDone={() => sl.setEditing(false)} />}
       <LinearMeter p={p} />
@@ -302,7 +302,7 @@ function SlopeBox() {
 
 export function GlideBox() {
   return (
-    <Box at={[1589, 1040, 1986, 1140]} className="vt-modbody vt-voice">
+    <Box at={[1589, 1040, 1986, 1140]} className="vt-modbody vt-voice" data-skin="Keyboard">
       <Knob p="portamento_time" x={63} y={36} d={58} label="GLIDE" labelAt={[8, 70, 118, 94]} />
       <SlopeBox />
       <Pill at={[127, 70, 240, 94]}>SLOPE</Pill>
