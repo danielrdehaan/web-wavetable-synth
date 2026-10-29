@@ -4,6 +4,7 @@ import { EngineSync } from './engine/EngineSync'
 import { MidiInput } from './engine/MidiInput'
 import { APP_NAME } from './name'
 import { VitalSim } from './sim/VitalSim'
+import { downloadSkinFiles } from './sim/vital/skin'
 import './sim/synthSim.css'
 
 // The synth on its own page: the redrawn interface, played by the engine. Sound starts on the first
@@ -18,6 +19,10 @@ export function App() {
           <ComputerKeyboard />
           <div className="app-bar"><SoundStatus /><MidiInput /></div>
         </VitalSim>
+        <div className="app-skins">
+          <button type="button" className="app-btn" onClick={() => void downloadSkinFiles()}>Download the Light and Dark themes</button>
+          <span>Two .vitalskin files, zipped. To use one in desktop Vital, choose ADVANCED → THEME → Load Skin...</span>
+        </div>
         <footer className="app-foot">
           {APP_NAME} runs the synthesis engine from <a href="https://github.com/mtytel/vital">Vital</a>'s
           open-source code (version 1.0.6), compiled for the browser. Free software under the GNU GPL v3.

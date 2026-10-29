@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useLayoutEffect, useMemo, useState, type ReactNode, type RefObject } from 'react'
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useState, type ReactNode, type RefObject } from 'react'
 import defaultText from '../../../../vital-src/default.vitalskin?raw'
 import makeThingsDark from './skins/make-things-dark.vitalskin?raw'
 import makeThingsLight from './skins/make-things-light.vitalskin?raw'
@@ -122,12 +122,31 @@ export function parseSkin(text: string, name: string, base: SkinLayer = DEFAULT_
 
 const DEFAULT_SKIN: Skin = parseSkin(defaultText, 'Default', { colors: {}, values: {} })
 
-/** The skins the THEME menu lists: Vital's default, then the bundled ones by name. */
-export const BUILTIN_SKINS: Skin[] = [
-  DEFAULT_SKIN,
-  parseSkin(makeThingsDark, 'Make Things - Dark'),
-  parseSkin(makeThingsLight, 'Make Things - Light'),
+/** The bundled skins, by the name THEME shows: Make Things' Light and Dark, and Vital's own default. */
+const LIGHT_SKIN = parseSkin(makeThingsLight, 'Light')
+const DARK_SKIN = parseSkin(makeThingsDark, 'Dark')
+export const BUILTIN_SKINS: Skin[] = [LIGHT_SKIN, DARK_SKIN, DEFAULT_SKIN]
+/** THEME's first choice: Light or Dark, following the system's appearance. */
+export const AUTO = 'Auto'
+/** Other names a bundled skin answers to (its file name, as ?skin= or an older saved choice gives it). */
+const ALIASES: Record<string, string> = { 'make-things-light': 'Light', 'make-things-dark': 'Dark' }
+
+/** The bundled skin files, as a reader would put them in Vital's Skins folder. */
+export const SKIN_FILES = [
+  { name: 'Make Things - Light.vitalskin', text: makeThingsLight },
+  { name: 'Make Things - Dark.vitalskin', text: makeThingsDark },
 ]
+
+/** Downloads the Light and Dark skin files, zipped together. */
+export async function downloadSkinFiles() {
+  const { strToU8, zipSync } = await import('fflate')
+  const zip = zipSync(Object.fromEntries(SKIN_FILES.map((f) => [f.name, strToU8(f.text)])))
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(new Blob([zip as BlobPart], { type: 'application/zip' }))
+  a.download = 'Make Things Skins.zip'
+  a.click()
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000)
+}
 
 /** The skin as CSS: the globals on `scope` and each section's overrides on its marked elements inside it. */
 export function skinCss(skin: Skin, scope = '.vt'): string {
@@ -145,9 +164,10 @@ export function skinCss(skin: Skin, scope = '.vt'): string {
 export const defaultColor = (key: ColorKey) => DEFAULT_SKIN.colors[key] ?? '#000000'
 export const defaultValue = (key: ValueKey) => DEFAULT_SKIN.values[key] ?? 0
 
-// The chosen skin: the page's ?skin= (by name or file name, e.g. make-things-dark) wins, then the one
-// chosen in THEME (kept in this browser), then Vital's default. A skin loaded from a file (Load Skin...)
-// is kept too, under its own name.
+// The chosen skin: the page's ?skin= (auto, light, dark, default, or a bundled file's name such as
+// make-things-dark) wins, then the one chosen in THEME (kept in this browser), then Vital's default.
+// Auto is Light or Dark as the system's appearance is, and changes with it. A skin loaded from a file
+// (Load Skin...) is kept too, under its own name.
 const CHOSEN_KEY = 'vt-skin'
 const LOADED_KEY = 'vt-skin-loaded'
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
@@ -159,9 +179,25 @@ function readLoaded(): Skin | null {
   } catch { return null }
 }
 
+/** The system's appearance is dark, kept up to date. */
+function useSystemDark(): boolean {
+  const query = typeof matchMedia === 'function' ? matchMedia('(prefers-color-scheme: dark)') : null
+  const [dark, setDark] = useState(() => query?.matches ?? false)
+  useEffect(() => {
+    if (!query) return
+    const on = () => setDark(query.matches)
+    query.addEventListener('change', on)
+    return () => query.removeEventListener('change', on)
+  }, [query?.media]) // eslint-disable-line react-hooks/exhaustive-deps
+  return dark
+}
+
 interface SkinApi {
+  /** The skin drawn (for Auto, Light or Dark). */
   skin: Skin
-  /** Names for the THEME menu. */
+  /** The THEME choice: Auto or a skin's name. */
+  chosen: string
+  /** Names for the THEME menu: Auto, the bundled skins, then one loaded from a file. */
   names: string[]
   choose: (name: string) => void
   /** Loads a .vitalskin file and chooses it; rejects if it isn't one. */
@@ -179,8 +215,14 @@ export function SkinProvider({ initial, children }: { initial?: string | null; c
     try { return localStorage.getItem(CHOSEN_KEY) ?? 'Default' } catch { return 'Default' }
   })
   const [version, setVersion] = useState(0)
+  const dark = useSystemDark()
   const all = useMemo(() => (loaded ? [...BUILTIN_SKINS.filter((s) => s.name !== loaded.name), loaded] : BUILTIN_SKINS), [loaded])
-  const skin = all.find((s) => s.name === chosen || slug(s.name) === slug(chosen)) ?? DEFAULT_SKIN
+  const want = ALIASES[slug(chosen)] ?? chosen
+  const auto = slug(want) === slug(AUTO)
+  const skin = auto ? (dark ? DARK_SKIN : LIGHT_SKIN) : all.find((s) => s.name === want || slug(s.name) === slug(want)) ?? DEFAULT_SKIN
+  const shown = auto ? AUTO : skin.name
+  // Drawing that reads the skin from the page reads it again when Auto flips with the system.
+  useEffect(() => { if (auto) setVersion((n) => n + 1) }, [auto, dark])
   const choose = useCallback((name: string) => {
     setChosen(name); setVersion((n) => n + 1)
     try { localStorage.setItem(CHOSEN_KEY, name) } catch { /* storage unavailable */ }
@@ -193,7 +235,7 @@ export function SkinProvider({ initial, children }: { initial?: string | null; c
     try { localStorage.setItem(LOADED_KEY, JSON.stringify({ name, text })) } catch { /* too big or unavailable: this session only */ }
     choose(name)
   }, [choose])
-  const api = useMemo(() => ({ skin, names: all.map((s) => s.name), choose, load, version }), [skin, all, choose, load, version])
+  const api = useMemo(() => ({ skin, chosen: shown, names: [AUTO, ...all.map((s) => s.name)], choose, load, version }), [skin, shown, all, choose, load, version])
   return <SkinContext.Provider value={api}>{children}</SkinContext.Provider>
 }
 

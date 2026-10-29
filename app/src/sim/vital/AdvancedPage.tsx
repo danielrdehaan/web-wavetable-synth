@@ -163,8 +163,8 @@ function UiMenuBox({ k, names, def, at, split, label, extra }: { k: string; name
   )
 }
 
-/** THEME: the skins (Vital's default and the bundled ones, plus one loaded from a file), then Load
- *  Skin... for a .vitalskin of the reader's own. */
+/** THEME: Auto (Light or Dark with the system), Light, Dark, Vital's Default, a skin loaded from a file,
+ *  then Load Skin... for a .vitalskin of the reader's own. */
 function ThemeBox({ at, split }: { at: Rect; split: number }) {
   const api = useVital()
   const skins = useSkin()
@@ -172,9 +172,9 @@ function ThemeBox({ at, split }: { at: Rect; split: number }) {
   return (
     <>
       <ValBox at={at} split={split} label="THEME" className="click small"
-        onClick={(e) => menuOf(api, e, [...skins.names.map((name) => ({ label: name, on: name === skins.skin.name, act: () => skins.choose(name) })),
+        onClick={(e) => menuOf(api, e, [...skins.names.map((name) => ({ label: name, on: name === skins.chosen, act: () => skins.choose(name) })),
           { sep: true }, { label: 'Load Skin...', act: () => pick.current?.click() }], 95)}>
-        {skins.skin.name}
+        {skins.chosen}
       </ValBox>
       <input ref={pick} type="file" accept=".vitalskin,application/json" hidden onChange={(e) => {
         const file = e.target.files?.[0]

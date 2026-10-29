@@ -10,5 +10,8 @@ html, body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.
 .app-midi-btn:hover { border-color: var(--primary); }
 .app-status.off { color: var(--primary); }
 .app-status.error { color: #ff7a7a; }
+.app-skins { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 14px; color: var(--muted); font-size: 13px; }
+.app-btn { background: transparent; color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 5px 10px; font: inherit; font-size: 13px; cursor: pointer; }
+.app-btn:hover { border-color: var(--primary); }
 .app-foot { margin-top: 14px; color: var(--muted); font-size: 12px; }
 .app-foot a { color: var(--primary); }
