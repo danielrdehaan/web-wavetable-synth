@@ -25,8 +25,8 @@ made by, endorsed by or affiliated with Vital Audio.
 | `web/engine-client.d.ts` | Types for the client. |
 | `app/` | The synth app (Vite + React): the Vital interface from StemShare's Foundations of Synthesis sim (`app/src/sim/`), played by the engine (`app/src/engine/`). |
 | `app/src/embed/` | Framed mode (`?embed=1`): the whole synth or only some of its sections (`parts`, see `app/src/sim/vital/parts.tsx`), and the versioned postMessage protocol a page uses to drive it. See `docs/embed-protocol.md`. |
-| `app/src/sim/vital/skin.tsx` | Vital's skins (`.vitalskin`): each colour and size becomes a `--sk-*` CSS variable, section overrides go on the elements marked `data-skin`, and ADVANCED → THEME picks Vital's default, the bundled Make Things Dark and Light (`app/src/sim/vital/skins/`), or a skin file the reader loads. |
-| `web/_headers` | The deployment's headers: which pages may frame the synth. |
+| `app/src/sim/vital/skin.tsx` | Vital's skins (`.vitalskin`): each colour and size becomes a `--sk-*` CSS variable, section overrides go on the elements marked `data-skin`, and ADVANCED → THEME picks Auto (Light or Dark with the system's appearance), the bundled Make Things Light and Dark (`app/src/sim/vital/skins/`), Vital's Default, or a skin file the reader loads. A button under the synth downloads the Light and Dark files for desktop Vital. |
+| `web/_headers`, `wrangler.jsonc` | The deployment: its headers (which pages may frame the synth) and its Cloudflare Pages project. |
 | `app/src/engine/EngineSync.tsx` | Keeps the engine matching the interface's state: values, routings, wavetables, LFO shapes, notes. |
 | `tools/` | `bench.mjs` (realtime factor), `sweep.mjs` (load and play every preset in a folder), `roundtrip.mjs` (save → load every preset in a folder and compare), `render.mjs` (offline render to WAV, matching desktop Vital's `--render`), `cdp.mjs` (headless Chromium over the DevTools protocol, for checks when no visible browser paints), `skinshots.mjs` + `skindiff.py` (every page and overlay in one skin, and a pixel diff between two sets). |
 
@@ -53,6 +53,27 @@ npm run build        # → dist/ (static: host it anywhere that serves .mjs as J
 ```
 
 The plain demo is at http://localhost:5291/demo.html in dev.
+
+## Deploy
+
+The synth is its own Cloudflare Pages project, `web-wavetable-synth` (`wrangler.jsonc`), served at
+`https://synth.makethings.audio`. StemShare frames it: the whole page at `stems.makethings.audio/wavetable-synth`,
+and the `wavetableLab` KB widget's lessons (`?embed=1`). Its `VITE_WAVETABLE_SYNTH_URL` points at this
+origin, and `web/_headers` lists the pages allowed to frame it.
+
+Once, to set it up:
+
+```bash
+npx wrangler pages project create web-wavetable-synth --production-branch main
+```
+
+Then add `synth.makethings.audio` under the project's Custom domains in the Cloudflare dashboard.
+
+Each release, with `web/engine.mjs` built:
+
+```bash
+npm run build && npx wrangler pages deploy dist
+```
 
 ## Licensing — read before publishing anything
 

@@ -1,0 +1,6 @@
+// Cloudflare Pages project for the synth's own deployment (see README → Deploy). Headers: web/_headers.
+{
+  "name": "web-wavetable-synth",
+  "pages_build_output_dir": "./dist",
+  "compatibility_date": "2026-10-01"
+}

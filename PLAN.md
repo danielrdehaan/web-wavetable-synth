@@ -237,7 +237,9 @@ Each phase ends in something usable. Sizes are relative (S < M < L).
 ## Decisions for you
 
 1. **Name** for the published synth (not Vital).
-2. **Where it's hosted:** its own Pages project and subdomain, with a source link on the page.
+2. **Where it's hosted:** decided 2026-10-28: its own Pages project (`web-wavetable-synth`) at
+   `synth.makethings.audio`, framed whole at StemShare's `/wavetable-synth` (README → Deploy). Still
+   to do: a source link on the page.
 3. **Move the sim UI into this GPL repo** (recommended), or keep it in StemShare with only a
    thin bridge to a separately hosted engine. The second keeps one copy of the UI, but loading a
    GPL engine into a StemShare page is a legal grey area.
