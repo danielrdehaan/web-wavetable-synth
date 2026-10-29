@@ -13,6 +13,7 @@ import { requestSave } from './SaveOverlay'
 import { defaultColor, useSkinColors, useSkinValues } from './skin'
 import { loadTableFile, tableChanged } from './wavetableIO'
 import './wtedit.css'
+import { capturePointer } from '../pointer'
 
 // Vital's wavetable editor (WavetableEditSection, opened from an oscillator's pencil): the frame edit
 // box (the frame at the playhead, its harmonic amplitudes and phases, and over them the selected
@@ -172,8 +173,6 @@ function local(e: { clientX: number; clientY: number }, el: Element, width: numb
   return { x: (e.clientX - r.left) * s, y: (e.clientY - r.top) * s }
 }
 
-const capture = (e: React.PointerEvent) => { try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic pointer */ } }
-
 /** OpenGlLineRenderer with fill: the waveform (+1 at the top) stroked `width` points wide over its fill
  *  to the centre. */
 function drawWaveform(g: CanvasRenderingContext2D, w: number, h: number, k: number, values: ArrayLike<number>, n: number, line: string, fill: string, width = 2) {
@@ -241,7 +240,7 @@ function TextSlider({ at, value, min, max, step, def, onChange, inc, title }: {
   return (
     <div ref={wheel} className="wt-text" style={R(...at)} title={title}
       onPointerEnter={() => setHover(true)} onPointerLeave={() => setHover(false)}
-      onPointerDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); capture(e); drag.current = { x: e.clientX, y: e.clientY, v: value } }}
+      onPointerDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); capturePointer(e); drag.current = { x: e.clientX, y: e.clientY, v: value } }}
       onPointerMove={(e) => {
         const d = drag.current
         if (!d) return
@@ -296,7 +295,7 @@ function LinearBar({ at, value, def, onChange }: { at: Rect; value: number; def:
   const down = useRef(false)
   return (
     <div className="wt-linear" style={R(...at)}
-      onPointerDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); capture(e); down.current = true; set(e, false) }}
+      onPointerDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); capturePointer(e); down.current = true; set(e, false) }}
       onPointerMove={(e) => { if (down.current) set(e, false) }}
       onPointerUp={(e) => { if (down.current) { down.current = false; set(e, true) } }}
       onDoubleClick={() => onChange(def, true)}>
@@ -571,7 +570,7 @@ function Playhead({ position, onMove }: { position: number; onMove: (p: number) 
   }
   const down = useRef(false)
   return <canvas ref={ref} className="wt-playhead" style={R(...PLAYHEAD)}
-    onPointerDown={(e) => { if (e.button !== 0) return; capture(e); down.current = true; at(e) }}
+    onPointerDown={(e) => { if (e.button !== 0) return; capturePointer(e); down.current = true; at(e) }}
     onPointerMove={(e) => { if (down.current) at(e) }} onPointerUp={() => { down.current = false }} />
 }
 
@@ -803,7 +802,7 @@ function Organizer({ layout, setLayout, sel, playhead, scroll, onScroll, wt, sel
     <div ref={wheel} style={{ position: 'absolute', ...R(...ORG) }}>
       <canvas ref={ref} className="wt-organizer" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
         onPointerDown={(e) => {
-          capture(e)
+          capturePointer(e)
           const { x, y } = local(e, e.currentTarget, W)
           mode.current = { kind: 'waiting', x, y }
           const hit = frameAt(x, y)
@@ -1067,7 +1066,7 @@ function WaveSourceEditor({ at, values, grid, onChange, onMenu, visible }: {
     onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onMenu(e, act) }}
     onPointerDown={(e) => {
       if (e.button !== 0) return
-      capture(e)
+      capturePointer(e)
       const p = local(e, e.currentTarget, W), s = st.current
       s.mouse = p
       s.last = snapped(p)
@@ -1149,7 +1148,7 @@ function BarEditor({ at, heights, setHeight, zoom, clear, onChange }: {
       const p = local(e, e.currentTarget, W)
       lastEdit.current = p
       if (e.button !== 0) return
-      capture(e)
+      capturePointer(e)
       last.current = p
       change(p)
     }}
@@ -1246,7 +1245,7 @@ function PhaseTicks({ at, phase, maxHeight, onChange }: { at: Rect; phase: numbe
   const p = useRef(phase)
   p.current = phase
   return <canvas ref={ref} className="wt-ticks" style={R(...at)}
-    onPointerDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); capture(e); last.current = local(e, e.currentTarget, W).x }}
+    onPointerDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); capturePointer(e); last.current = local(e, e.currentTarget, W).x }}
     onPointerMove={(e) => {
       if (last.current === null) return
       const x = local(e, e.currentTarget, W).x
@@ -1325,7 +1324,7 @@ function WindowEditor({ at, left, right, shape, onChange }: { at: Rect; left: nu
     else if (editing.current === 'r') onChange(l, Math.max(l, Math.min(1, t)), final)
   }
   return <canvas ref={ref} className="wt-ticks" style={R(...at)}
-    onPointerDown={(e) => { if (e.button !== 0) return; capture(e); const x = local(e, e.currentTarget, W).x; editing.current = sideAt(x); move(x, false) }}
+    onPointerDown={(e) => { if (e.button !== 0) return; capturePointer(e); const x = local(e, e.currentTarget, W).x; editing.current = sideAt(x); move(x, false) }}
     onPointerMove={(e) => { const x = local(e, e.currentTarget, W).x; if (editing.current) move(x, false); else setHover(sideAt(x)) }}
     onPointerUp={(e) => { if (editing.current) { move(local(e, e.currentTarget, W).x, true); editing.current = null; setHover(null) } }}
     onPointerLeave={() => setHover(null)} />
@@ -1503,7 +1502,7 @@ function AudioViewer({ at, peaks, position, size, fade: windowFade, dragging, on
     onDragOver={(e) => { if ([...e.dataTransfer.items].some((it) => it.kind === 'file')) { e.preventDefault(); onDragState(true) } }}
     onDragLeave={() => onDragState(false)}
     onDrop={(e) => { e.preventDefault(); onDragState(false); const f = e.dataTransfer.files[0]; if (f) onDrop(f) }}
-    onPointerDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); capture(e); last.current = local(e, e.currentTarget, W).x }}
+    onPointerDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); capturePointer(e); last.current = local(e, e.currentTarget, W).x }}
     onPointerMove={(e) => { if (last.current === null) return; const x = local(e, e.currentTarget, W).x; onMove((x - last.current) / W, false); last.current = x }}
     onPointerUp={(e) => { if (last.current === null) return; const x = local(e, e.currentTarget, W).x; onMove((x - last.current) / W, true); last.current = null }} />
 }

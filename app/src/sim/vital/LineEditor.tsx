@@ -10,6 +10,7 @@ import { requestSave } from './SaveOverlay'
 import { lineToEngine } from '../../engine/shapes'
 import { useSkinColors, useSkinValues } from './skin'
 import { type Line, MAX_POINTS, MAX_POWER, copyLine, flipHorizontal, flipVertical, LINEAR, PAINT_SHAPES, renderLine, smoothTransition, valueAt } from './line'
+import { capturePointer } from '../pointer'
 
 // Vital's line editor (line_editor.cpp), with the LFO's playhead and trail (lfo_editor.cpp) and the
 // remap's live input (line_map_editor.cpp). Drawn on a canvas so the trail can widen and brighten the
@@ -306,7 +307,7 @@ export function LineEditor(props: LineEditorProps) {
     e.stopPropagation(); e.preventDefault()
     setTemporary(command(e))
     const { x, y } = local(e)
-    try { canvas.current!.setPointerCapture(e.pointerId) } catch { /* synthetic pointer */ }
+    capturePointer(e, canvas.current!)
     st.current.last = { x, y }
     if (painting()) { paintLine(x, y, e.altKey); st.current.dragging = true; return }
     const p = hoverPoint(x, y)

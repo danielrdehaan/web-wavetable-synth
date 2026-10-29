@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useRef } from 'react'
 import type { Tag } from './tags'
+import { capturePointer } from './pointer'
 
 // The synth sims' context and pointer helper (see kit.tsx for the drawing kit).
 
@@ -28,7 +29,7 @@ export function useVerticalDrag(onDrag: (dy: number) => void) {
   const cb = useRef(onDrag)
   useEffect(() => { cb.current = onDrag })
   return {
-    onPointerDown: (e: React.PointerEvent) => { e.preventDefault(); e.stopPropagation(); last.current = e.clientY; try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* no live pointer */ } },
+    onPointerDown: (e: React.PointerEvent) => { e.preventDefault(); e.stopPropagation(); last.current = e.clientY; capturePointer(e) },
     onPointerMove: (e: React.PointerEvent) => { if (last.current === null) return; const dy = last.current - e.clientY; last.current = e.clientY; if (dy) cb.current(dy) },
     onPointerUp: () => { if (last.current !== null) markDragEnd(); last.current = null },
     onPointerCancel: () => { last.current = null },

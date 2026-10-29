@@ -7,6 +7,7 @@ import { powerCurve } from './draw'
 import { useDrag } from './hooks'
 import { mix, over, useLineSkin, withAlpha } from './LineEditor'
 import { PARAMS } from './params'
+import { capturePointer } from '../pointer'
 
 // Vital's envelope editor (envelope_editor.cpp) on a canvas. The window shows a fixed span of time
 // (4 s to start, 0.125–64 s) that grows only when a decay or release is dragged past its edge; the
@@ -118,7 +119,7 @@ export function EnvelopeEditor({ pre, at, running }: { pre: string; at: [number,
   const onPointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0) return
     e.stopPropagation(); e.preventDefault()
-    try { canvas.current!.setPointerCapture(e.pointerId) } catch { /* synthetic pointer */ }
+    capturePointer(e, canvas.current!)
     st.current.mouseDown = true
     st.current.last = local(e)
     st.current.dirty = true

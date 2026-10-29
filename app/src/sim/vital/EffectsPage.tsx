@@ -5,6 +5,7 @@ import { DEFAULT_ORDER, FX, PANEL_H, PANEL_PITCH, PX, TILE_H, TILE_PITCH, VIEW_H
 import { ChorusPanel, CompressorPanel, DelayPanel, DistortionPanel, EqPanel, FilterPanel, FlangerPanel, Panel, PhaserPanel, ReverbPanel } from './fxPanels'
 import { R } from './hooks'
 import './effects.css'
+import { capturePointer } from '../pointer'
 
 // Vital's EFFECTS page (s0b, s6a–c, s3d): the nine effects as tiles on the left (power button, name,
 // icon; drag a tile to reorder the chain, live, as DragDropEffectOrder does), and on the right a scrolling column with a panel for each
@@ -142,7 +143,7 @@ export function EffectsPage() {
     if (e.button !== 0) return
     const y = listY(e, e.currentTarget), slot = slotAt(y)
     dragRef.current = { fx: order[slot], slot, y0: y, start: LIST_TOP + slot * TILE_PITCH, moved: false, order: [...order] }
-    try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic pointer */ }
+    capturePointer(e)
   }
   const move = (e: React.PointerEvent) => {
     const y = listY(e, e.currentTarget)
@@ -194,7 +195,7 @@ export function EffectsPage() {
         </div>
         {maxScroll > 0 && (
           <i className="vfx-thumb" style={{ top: thumbY / 2, height: thumbH / 2 }}
-            onPointerDown={(e) => { e.stopPropagation(); thumbRef.current = { y0: e.clientY, s0: scroll }; try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ } }}
+            onPointerDown={(e) => { e.stopPropagation(); thumbRef.current = { y0: e.clientY, s0: scroll }; capturePointer(e) }}
             onPointerMove={(e) => { const t = thumbRef.current; if (!t) return; const dy = ((e.clientY - t.y0) / api.scale()) * 2; setScroll(t.s0 + (dy / (VIEW_H - thumbH)) * maxScroll) }}
             onPointerUp={() => { if (thumbRef.current) markDragEnd(); thumbRef.current = null }} />
         )}

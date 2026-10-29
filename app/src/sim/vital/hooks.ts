@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { markDragEnd } from '../simContext'
 import { norm, PARAMS, shown, sourceName } from './params'
 import { useVital, type MenuItem, type VitalApi } from './ctx'
+import { capturePointer } from '../pointer'
 
 // The Vital controls' gestures (controls.tsx draws them).
 
@@ -23,7 +24,7 @@ export function useDrag(onMove: (dx: number, dy: number, fine: boolean) => void,
       e.preventDefault(); e.stopPropagation()
       last.current = { x: e.clientX, y: e.clientY }
       moved.current = false
-      try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic pointer */ }
+      capturePointer(e)
     },
     onPointerMove: (e: React.PointerEvent) => {
       if (!last.current) return
@@ -153,7 +154,7 @@ export function useSlider(p: string, opts: SliderOpts = {}) {
       if (e.altKey) { setEditing(true); return }
       drag.current = { x: e.clientX, y: e.clientY, t: norm(p, api.v[p] ?? d?.def ?? 0), moved: false }
       setPopup(true)
-      try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic pointer */ }
+      capturePointer(e)
     },
     onPointerMove: (e: React.PointerEvent) => {
       const g = drag.current

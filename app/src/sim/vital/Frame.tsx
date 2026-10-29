@@ -19,6 +19,7 @@ import { oscFrame } from './draw'
 import { R, useControlMenu, useNow, useSlider } from './hooks'
 import { norm, shown } from './params'
 import { sk, useSkinColors, useSkinValues } from './skin'
+import { capturePointer } from '../pointer'
 
 // Vital's frame: the header (page tabs, preset bar, undo/redo, the volume strip and scope), the macro
 // column with the wheels, and the keyboard. The header mark is a neutral one, not Vital's logo, and
@@ -396,7 +397,7 @@ export function Keyboard() {
   }
   return (
     <div ref={box} className="vt-b vt-keyboard" data-skin="Keyboard" style={R(127, 1153, 1986, 1206)}
-      onPointerDown={(e) => { e.stopPropagation(); try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic pointer */ } press(noteAt(e), e.clientY) }}
+      onPointerDown={(e) => { e.stopPropagation(); capturePointer(e); press(noteAt(e), e.clientY) }}
       onPointerLeave={() => setHover(null)}
       onPointerMove={(e) => { setHover(noteAt(e)); if (held.current === null) return; const el = document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-note]'); press(el ? Number(el.getAttribute('data-note')) : held.current, e.clientY) }}
       onPointerUp={() => press(null)} onPointerCancel={() => press(null)} onClick={(e) => e.stopPropagation()}>

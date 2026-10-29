@@ -14,6 +14,7 @@ import { R, useControlMenu, useDrag, useStepWheel, useWheel, type Rect } from '.
 import { sk, useSkinColors, useSkinValues } from './skin'
 import { filterDb } from './draw'
 import { COMP_BANDS, DELAY_STYLES, DIST_FILTER_ORDER, DIST_TYPES, DIST_TYPES_SHORT, FREQ_SYNC, PARAMS, shown, SYNCED_FREQ } from './params'
+import { capturePointer } from '../pointer'
 
 // The EFFECTS page's nine panels, measured from the capture (s6a–s6c): every panel is 193.8 tall,
 // x from 344.4 (its strip) to 1131.2 in the 2000-wide frame. Positions below are frame x (shifted by
@@ -423,7 +424,7 @@ function CompressorScreen() {
         setHover(hit)
         if (!hit) return
         e.stopPropagation(); api.checkpoint(); last.current = p.y
-        try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic pointer */ }
+        capturePointer(e)
       }}
       onPointerMove={move}
       onPointerUp={() => { last.current = null; setPopup(null) }}
@@ -659,7 +660,7 @@ function EqScreen({ sel, setSel }: { sel: number; setSel: (b: number) => void })
         const p = local(e), band = nearest(p.x, p.y)
         if (band < 0) return
         e.stopPropagation(); setSel(band); setDragging(band); api.checkpoint()
-        try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic pointer */ }
+        capturePointer(e)
       }}
       onPointerMove={(e) => { if (dragging !== null) { const p = local(e); moveTo(dragging, p.x, p.y) } }}
       onPointerUp={() => setDragging(null)} onPointerCancel={() => setDragging(null)}>
@@ -857,7 +858,7 @@ function ReverbScreen({ sel, setSel }: { sel: number; setSel: (b: number) => voi
         const p = local(e), band = nearest(p.x, p.y)
         if (band < 0) return
         e.stopPropagation(); setSel(band); setDragging(band); api.checkpoint()
-        try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic pointer */ }
+        capturePointer(e)
       }}
       onPointerMove={(e) => { if (dragging !== null) { const p = local(e); moveTo(dragging, p.x, p.y) } }}
       onPointerUp={() => setDragging(null)} onPointerCancel={() => setDragging(null)}>

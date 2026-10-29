@@ -124,6 +124,8 @@ export function VitalProvider({ children }: { children: ReactNode }) {
     }
     const targetAt = (cx: number, cy: number) => document.elementFromPoint(cx, cy)?.closest('[data-drop]')?.getAttribute('data-drop') ?? null
     const move = (ev: PointerEvent) => {
+      // The button let go where the page didn't hear it (outside the window): the drag ends there.
+      if (ev.pointerType === 'mouse' && !(ev.buttons & 1)) { up(); return }
       if (!dragging && !inside(ev.clientX, ev.clientY)) { dragging = true; edit(); setDragSrc(src) }
       if (!dragging) return
       const dst = targetAt(ev.clientX, ev.clientY)

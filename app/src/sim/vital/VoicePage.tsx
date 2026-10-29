@@ -19,6 +19,7 @@ import { readAudioFile } from '../../engine/audioFile'
 import { loadTableFile as loadWavetableFile, tableChanged } from './wavetableIO'
 import { openWavetableEditor } from './WavetableEditor'
 import { sk } from './skin'
+import { capturePointer } from '../pointer'
 
 // Vital's VOICE page: OSC 1–3, the sampler (SMP) and FILTER 1 | FILTER 2, each control wired to its
 // parameter. Positions are the capture's (2000 × 1211) relative to each section, halved by R().
@@ -121,7 +122,7 @@ function SnapCallout({ p, anchor, w, onClose }: { p: string; anchor: HTMLElement
   }
   return createPortal(
     <div ref={box} className="vt-snapcallout" data-skin="Oscillator" style={{ left, top, width: cw, height: ch }}
-      onPointerDown={(e) => { e.stopPropagation(); mode.current = null; const n = keyAt(e); if (n >= 0) { api.checkpoint(); paint(n); try { box.current!.setPointerCapture(e.pointerId) } catch { /* synthetic pointer */ } } }}
+      onPointerDown={(e) => { e.stopPropagation(); mode.current = null; const n = keyAt(e); if (n >= 0) { api.checkpoint(); paint(n); capturePointer(e, box.current!) } }}
       onPointerMove={(e) => { const n = keyAt(e); setHover(n); if (e.buttons & 1 && mode.current) paint(n) }}
       onPointerUp={() => { mode.current = null }} onPointerLeave={() => setHover(-1)}>
       <span className="vt-snaptitle" style={{ height: title, fontSize: title * 0.7 }}>TRANSPOSE SNAP</span>
